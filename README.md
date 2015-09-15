@@ -127,16 +127,11 @@ In order to simplify the features of class functions there are some naming conve
 
 ### Operators
 
-strref += (int) / strref++
-    Move start of string forward and reduce length
+* strref += (int) / strref++: Move start of string forward and reduce length
+* strref > strref / strref < strref: Returns alphabetical sorting order greater than / less than
+* strref[(int)]: Return character at position
 
-strref > strref / strref < strref
-	Returns alphabetical sorting order greater than / less than
-
-strref[(int)]
-	Return character at position
-
-For function description, please refer to the header file.
+For function descriptions, please refer to the struse.h.
 
 
 
@@ -166,15 +161,21 @@ Wildcard control characters:
 
 (words are groups of letters not containing whitespace or separators which are alphanumeric characters plus apostrophe ('))
 
+```
 result = text.find_wildcard(pattern, position=0, case_sensitive=true)
+```
 
 will find the pattern in the strref text and return as a strref result.
 
+```
 result = text.next_wildcard(pattern, prev, case_sensitive=true)
+```
 
 will find the pattern in text after the previously found 'prev' begins.
 
+```
 result = text.wildcard_after(pattern, prev, case_sensitive=true)
+```
 
 will find the pattern in text after the previously found 'prev' ends.
 
