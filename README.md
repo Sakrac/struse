@@ -212,7 +212,9 @@ strown and strovl share the same base (strmod) and share the same code. The diff
 
 The most straightforward way to put text into strown is to create the string with the text:
 
+```
 strown<256> test("test string");
+```
 
 You can also copy a string or strref into a strown with the copy function:
 
