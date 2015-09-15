@@ -8,7 +8,7 @@ Add this #define to *one* C++ file before #include "struse.h" to create the impl
 
 Samples.cpp contains some trivial use cases for reference, it is not a part of the library.
 
-StrUse is a collection of string parsing and string modification classes
+struse is a collection of string parsing and string modification classes
 that are intended to work together to simplify parsing blocks of text,
 building blocks of text.
 
@@ -36,20 +36,20 @@ To support printf formatting with non-zero terminated strings there are two macr
 printf("\"" STRREF_FMT "\"\n", STRREF_ARG(strref));
 ```
 
-## Reliability:
+### Reliability:
 
 An effort has been made to check that all write operations fit within given space and that all reading operations access only the part of memory that has been assigned to a string. That is not to say that this code is without bugs, use at your own risk but let me know of any issues. This code is provided to assist with often tedious string management issues and a certain knowledge of how string manipulation works may be required to understand these classes.
 
 If anything is unclear I strongly suggest looking at the header file or the code. As far as reasonable the code is written to be easy to read.
 
-## Next steps
+### Next steps
 
 * Clean up test code and add to the depot
 * Clean up project files and include in the depot
 * Clean up sample code (xml, json, cfg, csv, etc. parsing) and include
 * More documentation
 
-## Future considerations
+### Future considerations
 
 * wchar_t support
 
