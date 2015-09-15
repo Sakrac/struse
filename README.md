@@ -220,11 +220,11 @@ test.copy(test_strref);
 
 Other ways to add text to a strown/strovl include:
 
-* insert(string, pos): move text forward at pos by string size and insert string at position.
-* append(string): add string at end
-* append(char): add character at end
-* prepend(string): insert at start
-* format(format_string, args): format a string c# string style with {n} where n is a number indicating which of the strref args to insert
-* sprintf(format, ...): use sprintf formatting with zero terminated c style strings and other data types.
+* **insert**(string, pos): move text forward at pos by string size and insert string at position.
+* **append**(string): add string at end
+* **append**(char): add character at end
+* **prepend**(string): insert at start
+* **format**(format_string, args): format a string c# string style with {n} where n is a number indicating which of the strref args to insert
+* **sprintf**(format, ...): use sprintf formatting with zero terminated c style strings and other data types.
 
 format and sprint have appending versions, format can also insert and sprint can overwrite.
