@@ -4,7 +4,7 @@ USAGE
 
 Add this #define to *one* C++ file before #include "struse.h" to create the implementation:
 
-#define STRUSE_IMPLEMENTATION
+\#define STRUSE_IMPLEMENTATION
 
 Samples.cpp contains some trivial use cases for reference, it is not a part of the library.
 
