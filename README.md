@@ -61,33 +61,33 @@ The most common application of strref is to load in a text file into memory and 
 
 With a strref it is easy to iterate through each line of the text by:
 
-'''
+```
 while (strref current_line = text.line()) {
     do something with current_line
 }
-'''
+```
 
 If the format is fairly straightforward, current_line may be as simple as variable = value. Separating the two sides of the equal sign can be done by splitting it up and trimming remaining whitespace by calling
 
-'''
+```
 strref value = current_line.split_token_trim('=');
-'''
+```
 
 Assuming that the original line was "    numbers = 73.4, 12.2, 13, 19.2"
 current_line would now be "numbers" and value would be "73.4, 12.2, 13, 19.2"
 
 In order to iterate over the individual numbers:
 
-'''
+```
 while (strref number = value.next_token(',')) {
     int value = number.atoi();
     ...
 }
-'''
+```
 
 So putting this together:
 
-'''
+```
 while (strref current_line = text.line()) {
   strref value = current_line.split_token_trim('=');
   if (current_line.same_str_case("numbers")) {
@@ -98,7 +98,7 @@ while (strref current_line = text.line()) {
   }
   ...
 }
-'''
+```
 
 This will go through all lines in a file, split by equal signs and handle tokenized lists of numbers.
 
@@ -178,12 +178,12 @@ will find the pattern in text after the previously found 'prev' ends.
 
 ### Example:
 
-'''
+```
 strref result;
 while (result = text.wildcard_after("full*{! }.png", result)) {
     printf(STROP_FMT "\n", STROP_ARG(reslt));
 }
-'''
+```
 
 will find all matches of the pattern in the text and print them.
 
@@ -196,11 +196,11 @@ can be done in a number of ways depending on what is needed.
 Given a string like: '23,12,5,91,54,8,23,17,67' each number can be fetched with
 this loop:
 
-'''
+```
 while (strref num = line.next_token(',')) {
 	int value = num.atoi();
 }
-'''
+```
 
 
 # strown / strovl support:
