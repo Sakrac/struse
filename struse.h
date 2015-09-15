@@ -495,6 +495,9 @@ public:
 	strref after_or_full_case(const strref str) const { int o = find_case(str);
 		if (o<0) return *this; return strref(string+o, length-o); }
 
+    strref between(char c, char d) { int s = find(c); if (s>=0) { int e = find_after(d, s);
+        if (e>=0) return get_substr(s+1, e-s-1); } return strref(); }
+
 	// tokenization
 	strref split(strl_t pos) { if (pos>get_len()) pos = get_len();  strref ret = strref(string, pos); skip(pos); return ret; }
 
@@ -541,6 +544,7 @@ void _strmod_toupper(char *string, strl_t length);
 strl_t _strmod_format_insert(char *string, strl_t length, strl_t cap, strl_t pos, strref format, const strref *args);
 strl_t _strmod_remove(char *string, strl_t length, strl_t cap, char a);
 strl_t _strmod_remove(char *string, strl_t length, strl_t cap, strl_t start, strl_t len);
+strl_t _strmod_exchange(char *string, strl_t length, strl_t cap, strl_t start, strl_t size, const strref insert);
 
 // intermediate template class to support writeable string classes. use strown or strovl which inherits from this.
 template <class B> class strmod : public B {
@@ -575,6 +579,7 @@ public:
 	char get_first() const { return (charstr() && len()) ? *charstr() : 0; }
 	char get_last() const { return (charstr() && len()) ? charstr()[len()-1] : 0; }
 	void copy(strref o) { set_len_int(_strmod_copy(charstr(), cap(), o)); }
+    bool is_substr(const char *sub) const { return sub>=charstr() && sub<=(charstr()+len()); }
 
 	// public size operators (checks for capacity)
 	strl_t fit_add(strl_t desired) { return (desired+len()) < cap() ? desired : (cap()-len()); }
@@ -696,6 +701,7 @@ public:
 	strref get_alphanumeric() const { return get_strref().get_alphanumeric(); }
 	strref before_or_full_case(const strref str) const { return get_strref().before_or_full_case(str); }
 	strref after_or_full_case(const strref str) const { return get_strref().after_or_full_case(str); }
+    strref between(char c, char d) const { return get_strref().between(c, d); }
 
 	// tokenization
 	strref line();	// return the current line and skip this to next line
@@ -831,7 +837,13 @@ public:
 	strref replace(const strref a, const strref b) {
 		set_len(_strmod_inplace_replace_int(charstr(), len(), cap(), a, b)); return get_strref(); }
 
-	// remove a part of this string
+    void exchange(strl_t pos, strl_t size, const strref insert) {
+        set_len_int(_strmod_exchange(charstr(), len(), cap(), pos, size, insert)); }
+    
+    void exchange(const strref original, const strref insert) {
+        if (is_substr(original.get())) { exchange(strl_t(original.get()-get()), original.get_len(), insert); } }
+            
+    // remove a part of this string
 	strref remove(strl_t start, strl_t length) {
 		set_len_int(_strmod_remove(charstr(), len(), cap(), start, length));
 		return get_strref(); return get_strref(); }
@@ -901,6 +913,7 @@ class strovl : public strmod<strovl_base> {
 public:
 	strovl() { invalidate(); string_length = 0; }
 	strovl(char *ptr, strl_t space) { set_overlay(ptr, space); string_length = 0; }
+    strovl(char *ptr, strl_t space, strl_t length) { set_overlay(ptr, space); string_length = length; }
 };
 
 
@@ -3797,6 +3810,36 @@ strl_t _strmod_remove(char *string, strl_t length, strl_t cap, strl_t start, str
 	}
 	return length;
 }
+
+// exchange a substring
+strl_t _strmod_exchange(char *string, strl_t length, strl_t cap, strl_t start, strl_t size, const strref insert)
+{
+    if (start > length)
+        return length;
+
+    if ((start + size) > length)
+        size = length - start;
+
+    strl_t copy = insert.get_len();
+    if ((start + copy) > cap)
+        copy = cap - start;
+
+    if (copy < size) {
+        strl_t rem = size - insert.get_len();
+        length = _strmod_remove(string, length, cap, start+size-rem, rem);
+    } else if (copy > size) {
+        strl_t ins = insert.get_len() - size;
+        strl_t left = length - size - start;
+        char *end = string + length + ins;
+        char *orig = string + length;
+        while (left--)
+            *--end = *--orig;
+        length += ins;
+    }
+    memcpy(string + start, insert.get(), copy);
+    return length;
+}
+
 
 // search and replace occurences of a string within a string
 strl_t _strmod_inplace_replace_int(char *string, strl_t length, strl_t cap, const strref a, const strref b)
