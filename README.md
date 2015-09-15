@@ -32,7 +32,7 @@ Think of strref as a const char pointer with a length. This allows for searches 
 
 To support printf formatting with non-zero terminated strings there are two macros that work together:
 
-**printf**("\"" **STROP_FMT** "\"\n", **STROP_ARG**(strref));
+**printf**("\"" **STRREF_FMT** "\"\n", **STRREF_ARG**(strref));
 
 ## Reliability:
 
