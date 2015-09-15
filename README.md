@@ -4,7 +4,7 @@ USAGE
 
 Add this #define to *one* C++ file before #include "struse.h" to create the implementation:
 
-&#35define STRUSE_IMPLEMENTATION
+ #define STRUSE_IMPLEMENTATION
 
 Samples.cpp contains some trivial use cases for reference, it is not a part of the library.
 
@@ -106,7 +106,7 @@ strref has a variety of helper functions to avoid string duplication and code du
 
 
 
-# strref specification
+## strref specification
 
 Function naming rules:
 
@@ -138,7 +138,7 @@ For function description, please refer to the header file.
 
 
 
-# strref wildcard find
+## strref wildcard find
 
 As an alternative to setting up a series of string scanning calls there is built-in wildcard matching support. Using wildcards is similar to most software searches that allow wildcards.
 
@@ -188,7 +188,7 @@ while (result = text.wildcard_after("full*{! }.png", result)) {
 will find all matches of the pattern in the text and print them.
 
 
-# Token iteration support:
+## Token iteration support:
 
 Reading in token separated values is a common function of text parsers. This
 can be done in a number of ways depending on what is needed.
@@ -203,7 +203,7 @@ while (strref num = line.next_token(',')) {
 ```
 
 
-# strown / strovl support:
+## strown / strovl support:
 
 strown and strovl share the same base (strmod) and share the same code. The difference is that strown includes the memory for the string and strovl requires user provided space.
 
