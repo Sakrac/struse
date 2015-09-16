@@ -95,6 +95,10 @@ public:
 	char get_last() const { return (string && length) ? string[length-1] : 0; }
 
 	bool is_substr(const char *sub) const { return sub>=string && sub<=(string+length); }
+	strl_t substr_offs(strref substr) const {
+		if (is_substr(substr.get())) return strl_t(substr.get()-get()); return 0; }
+	strl_t substr_end_offs(strref substr) const {
+		if (is_substr(substr.get())) return strl_t(substr.get()-get()) + substr.get_len(); return 0; }
 	bool is_empty() const { return length==0; }
 
 	// get fnv1a hash for string
@@ -438,10 +442,18 @@ public:
 	strref get_skipped(int len) const { if (len>=0 && strl_t(len)<length)
 		return strref(string+len, length-len); return strref(); }
 
-	strref get_clipped(int len) const { return strref(len>0?string:nullptr,
+	// get this strref without leading whitespace
+	strref get_skip_ws() const { return get_skipped(len_whitespace()); }
+
+	strref get_clipped(int len) const {
+		return strref(len>0?string:nullptr,
 		len>0?(strl_t(len)<length?len:length):0); }
 
 	strref get_word() const { return get_clipped(len_word()); }
+
+	// get the next block of characters separated by whitespace
+	strref get_word_ws() const {
+		strl_t w = len_whitespace(), g = len_grayspace(w); return get_substr(w, g - w); }
 
 	strref get_json() const { const char *s = string; int l = length; while (l) {
 		char c = *s++; if (!(c=='+' || c=='.' || c=='-' || is_number(c) || c>='A'))

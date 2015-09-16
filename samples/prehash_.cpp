@@ -17,8 +17,8 @@
 
 #define PHASH(str, hash) (hash)
 
-#define PHASH_SANDWICH PHASH("Sandwich");
-#define PHASH_SALAD PHASH("Salad");
+#define PHASH_SANDWICH PHASH("Sandwich", 0x0f692b24);
+#define PHASH_SALAD PHASH("Salad", 0x1bdc60ca);
 
 // maximum length (keyword must be same line)
 #define PHASH_MAX_LENGTH 1024
@@ -96,7 +96,7 @@ bool prehash_dual_buffer(const char *file) {
 			fread(original, size, 1, f);
 			fclose(f);
 
-			strref origref((const char*)original, (strl_t)size);
+			strref origref((const char*)original, size);
 
 			size_t buffer_size = size + PHASH_MAX_MARGIN;
 			if (void *buffer = malloc(buffer_size)) {
@@ -151,11 +151,11 @@ bool prehash_dual_buffer(const char *file) {
 }
 
 int main(int argc, char **argv) {
-    const char *file = "../xml_example.cpp";
+    const char *file = "samples/prehash.cpp";
     if (argc>1)
         file = argv[1];
 
-	if (!prehash_search_and_replace(file)) {
+	if (!prehash_dual_buffer(file)) {
         printf("Failed to prehash \"%s\"\n", file);
         return 1;
     }
