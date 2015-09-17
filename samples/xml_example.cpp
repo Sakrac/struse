@@ -60,27 +60,27 @@ public:
 
 struct ParseSpriteList {
 	SpriteList *pSprites;
-	bool parse_bitmap;
 };
 
 bool XMLExample_Callback(void *user, strref element, const strref *stack, int depth, XML_TYPE type)
 {
-	ParseSpriteList *pParse = (ParseSpriteList*)user;
+	SpriteList *pSprites = (SpriteList*)user;
 
-	size_t count = pParse->pSprites->sprites.size();
+	// what sprite is currently being parsed?
+	size_t count = pSprites->sprites.size();
 	size_t curr = count ? count - 1 : 0;
 
 	if (type == XML_TYPE_TEXT) {
-		if (pParse->parse_bitmap) {
-			pParse->pSprites->sprites[curr].bitmap.copy(element);
+		// this is text between tags, check the parent tag by looking at the
+		// most recent element on the tag stack! note: may be called without depth (outside all tags)
+		if (depth && stack[0].get_word_ws().fnv1a() == SPRITE_TAG_BITMAP) {
+			pSprites->sprites[curr].bitmap.copy(element);
 		}
 	} else if (type == XML_TYPE_TAG_OPEN || type == XML_TYPE_TAG_SELF_CLOSE) {
-		pParse->parse_bitmap = false;
 		strref tag = element.get_word_ws();
-		printf("TAG: " STRREF_FMT "\n", STRREF_ARG(tag));
 		switch (tag.fnv1a()) {
 			case SPRITE_TAG_SPRITE:
-				pParse->pSprites->sprites.push_back(Sprite());
+				pSprites->sprites.push_back(Sprite());
 				break;
 			case SPRITE_TAG_COLOR:
 				if (!count)		// can't have a color tag outside of a sprite tag
@@ -88,26 +88,21 @@ bool XMLExample_Callback(void *user, strref element, const strref *stack, int de
 				for (strref attr = XMLFirstAttribute(element); attr; attr = XMLNextAttribute(attr)) {
 					switch (XMLAttributeName(attr).fnv1a()) {
 						case SPRITE_COLOR_RED:
-							pParse->pSprites->sprites[curr].red = XMLAttributeValue(attr).atoi();
+							pSprites->sprites[curr].red = XMLAttributeValue(attr).atoi();
 							break;
 						case SPRITE_COLOR_GREEN:
-							pParse->pSprites->sprites[curr].green = XMLAttributeValue(attr).atoi();
+							pSprites->sprites[curr].green = XMLAttributeValue(attr).atoi();
 							break;
 						case SPRITE_COLOR_BLUE:
-							pParse->pSprites->sprites[curr].blue = XMLAttributeValue(attr).atoi();
+							pSprites->sprites[curr].blue = XMLAttributeValue(attr).atoi();
 							break;
 					}
 				}
 				break;
-			case SPRITE_TAG_BITMAP:
-				if (!count)		// can't have a bitmap tag outside of a sprite tag
-					return false;
-				pParse->parse_bitmap = true;
-				break;
 			case SPRITE_TAG_DOUBLESIDED:
 				if (!count)		// can't have a doulesided tag outside of a sprite tag
 					return false;
-				pParse->pSprites->sprites[curr].doublesided = true;
+				pSprites->sprites[curr].doublesided = true;
 				break;
 			case SPRITE_TAG_SIZE:
 				if (!count)		// can't have a size tag outside of a sprite tag
@@ -115,10 +110,10 @@ bool XMLExample_Callback(void *user, strref element, const strref *stack, int de
 				for (strref attr = XMLFirstAttribute(element); attr; attr = XMLNextAttribute(attr)) {
 					switch (XMLAttributeName(attr).fnv1a()) {
 					case SPRITE_SIZE_WIDTH:
-						pParse->pSprites->sprites[curr].width = XMLAttributeValue(attr).atoi();
+						pSprites->sprites[curr].width = XMLAttributeValue(attr).atoi();
 						break;
 					case SPRITE_SIZE_HEIGHT:
-						pParse->pSprites->sprites[curr].height = XMLAttributeValue(attr).atoi();
+						pSprites->sprites[curr].height = XMLAttributeValue(attr).atoi();
 						break;
 					}
 				}
@@ -132,11 +127,8 @@ bool XMLExample_Callback(void *user, strref element, const strref *stack, int de
 
 int main(int argc, char **argv) {
 	SpriteList sprites;
-	ParseSpriteList parse;
-	parse.pSprites = &sprites;
-	parse.parse_bitmap = false;
 
-	ParseXML(strref(aXMLExample, sizeof(aXMLExample) - 1), XMLExample_Callback, &parse);
+	ParseXML(strref(aXMLExample, sizeof(aXMLExample) - 1), XMLExample_Callback, &sprites);
 
 	return 0;
 }

@@ -22,8 +22,8 @@ bool ParseXML(strref xml, XMLDataCB callback, void *user)
 			if (!callback(user, tag, stack+sp, XML_DEPTH_MAX-sp, XML_TYPE_TAG_CLOSE))
 				return false;
 			strref id = tag.get_clipped(tag.len_grayspace());
-			printf("%c / %d\n", stack[sp].get()[id.get_len()], stack[sp].get()[id.get_len()]);
-			if (sp==XML_DEPTH_MAX || !id.is_prefix_of(stack[sp])) {
+			char next_char = stack[sp].get()[id.get_len()];
+			if (sp==XML_DEPTH_MAX || !id.is_prefix_of(stack[sp]) || (!strref::is_ws(next_char) && next_char!='>')) {
 				// XML syntax error
 				return false;
 			}

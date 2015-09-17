@@ -6,14 +6,11 @@ Add this #define to *one* C++ file before #include "struse.h" to create the impl
 
  #define STRUSE_IMPLEMENTATION
 
-Samples.cpp contains some trivial use cases for reference, it is not a part of the library.
+[Samples](tree/master/samples) contains basic, precompile hash and xml parsing samples using struse classes in a variety of ways.
 
-struse is a collection of string parsing and string modification classes
-that are intended to work together to simplify parsing blocks of text,
-building blocks of text.
+struse is a collection of string parsing and string modification classes that are intended to work together to simplify parsing blocks of text, building blocks of text.
 
-StrUse is a little bit different from built-in string types and classes
-in that it has multiple classes to interface with string data.
+StrUse is a little bit different from built-in string types and classes in that it has multiple classes to interface with string data.
 
 * '**strref**' is a string reference class that refers to text rather than copying. There are a variety of ways to search and iterate over text blocks using strref.
 * '**strown**' is a scope-based (stack) modifiable string (char[])
@@ -141,23 +138,23 @@ As an alternative to setting up a series of string scanning calls there is built
 
 Wildcard control characters:
 
-* ? => any single
-* # => any single number
-* [] => any single between the brackets
-* [-] => any single in the range from character before - to character after
-* [!] => any single not between the brackets
-* < => start of word
-* > => end of word
-* @ => start of line
-* ^ => end of line
-* * => any substring
-* *% => any substring excluding whitespace
-* *@ => any substring on same line
-* *$ => any substring containing alphanumeric ascii characters
-* *{} => any substring only containing characters between parenthesis
-* *{!} => any substring not containing characters between parenthesis
-* \?, \[, \*, etc. => search for character after backslash
-* \n, \t, etc. => search for linefeed, tab etc.
+* **?**: any single character
+* **#**: any single number
+* **[]**: any single between the brackets
+* **[-]**: any single in the range from character before - to character after
+* **[!]**: any single not between the brackets
+* **&lt;**: start of word
+* **&gt**: end of word
+* **@**: start of line
+* **^**: end of line
+* **\***: any substring
+* **\*%**: any substring excluding whitespace
+* **\*@**: any substring on same line
+* **\*$**: any substring containing alphanumeric ascii characters
+* **\*{}**: any substring only containing characters between parenthesis
+* **\*{!}**: any substring not containing characters between parenthesis
+* **\?**, **\[**, **\\\***, etc.: search for character after backslash
+* **\n**, **\t**, etc.: search for linefeed, tab etc.
 
 (words are groups of letters not containing whitespace or separators which are alphanumeric characters plus apostrophe ('))
 
