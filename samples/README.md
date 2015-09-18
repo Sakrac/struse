@@ -5,6 +5,7 @@ These examples are intended to be read by humans and if desired copied directly 
 * [Basic](#basic)
 * [Prehash](#prehash)
 * [XML](#xml)
+* [JSON](#json)
 
 ### <a name="basic"></a>Basic sample
 
@@ -127,5 +128,46 @@ Parses the following xml data in **XMLExample_Callback**:
         <size width='32' height='32'/>
       </sprite>
     </root>
+
+### <a name="json"></a>JSON parser sample
+
+Files in project:
+
+* samples/json.cpp
+* samples/json.h
+* samples/json_example.cpp
+* struse.h
+
+samples/json.cpp is a general no-alloc JSON parser using callbacks to tell the caller about the data.
+
+**ParseJSON**
+
+Process JSON data using callbacks to build data. Call with a strref containing a JSON file, the callback function and an optional user data pointer.
+
+**JSONDataCB**
+
+This is the callback prototype.
+
+* **stack**: An array where the first element is the current object or array. Each element has two fields, 'name' is the name of the object or empty if an array element, array_index is the index of this value in an array.
+* **stack_size**: Number of levels of JSON objects/arrays
+* **arg**: Current argument (valid for string, int, float. true/false/null have empty arg).
+* **type**: Type of this JSON call
+* **user_data**: Pointer passed in to the parser.
+
+JSON Callback types:
+
+	JSON_CB_OBJECT
+	JSON_CB_ARRAY
+	JSON_CB_STRING
+	JSON_CB_INT
+	JSON_CB_FLOAT
+	JSON_CB_TRUE
+	JSON_CB_FALSE
+	JSON_CB_NULL
+	JSON_CB_OBJECT_CLOSE
+	JSON_CB_ARRAY_CLOSE
+
+See [json.org](http://www.json.org/) for format details.
+
 
 

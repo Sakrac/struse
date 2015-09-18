@@ -8,10 +8,7 @@
 //  Parse a file for instances of strings to hash (prefixed by
 //  PHASH).
 
-#ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS
-#endif
-
 #define STRUSE_IMPLEMENTATION
 #include "struse.h"
 
@@ -151,7 +148,7 @@ bool prehash_dual_buffer(const char *file) {
 }
 
 int main(int argc, char **argv) {
-    const char *file = "../xml_example.cpp";
+    const char *file = "../json.cpp";
     if (argc>1)
         file = argv[1];
 

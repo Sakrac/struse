@@ -455,7 +455,8 @@ public:
 	strref get_word_ws() const {
 		strl_t w = len_whitespace(), g = len_grayspace(w); return get_substr(w, g - w); }
 
-	strref get_json() const { const char *s = string; int l = length; while (l) {
+	strref get_valid_json_string() const {
+		const char *s = string; int l = length; while (l) {
 		char c = *s++; if (!(c=='+' || c=='.' || c=='-' || is_number(c) || c>='A'))
 		break; l--;	} return strref(string, length-l); }
 
