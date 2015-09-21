@@ -148,7 +148,7 @@ bool prehash_dual_buffer(const char *file) {
 }
 
 int main(int argc, char **argv) {
-    const char *file = "../json.cpp";
+    const char *file = "../prehash.cpp";
     if (argc>1)
         file = argv[1];
 

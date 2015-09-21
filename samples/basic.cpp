@@ -95,9 +95,9 @@ bool strref_samples()
 	strref file_dir = file_sample.before_last('\\', '/');		// file path excluding name
 
 	printf("\nfull path: " STRREF_FMT "\nextension: " STRREF_FMT "\nname: " STRREF_FMT
-		   "\nname no ext: " STRREF_FMT "\ndirectory: " STRREF_FMT "\n\n",
-		   STRREF_ARG(file_sample), STRREF_ARG(file_ext), STRREF_ARG(file_name),
-		   STRREF_ARG(file_name_no_ext), STRREF_ARG(file_dir));
+		"\nname no ext: " STRREF_FMT "\ndirectory: " STRREF_FMT "\n\n",
+		STRREF_ARG(file_sample), STRREF_ARG(file_ext), STRREF_ARG(file_name),
+		STRREF_ARG(file_name_no_ext), STRREF_ARG(file_dir));
 
 	// fnv1a helper
 	unsigned int hash = file_sample.fnv1a();
@@ -106,75 +106,82 @@ bool strref_samples()
 	// find substrings in text
 	strref text("Many gnomes don't live underwater, this is a widely appreciated convenience among fish.");
 
+	// case insensitive substring find
+	int pos = text.find(strref("THIS"));
+	if (pos < 0 || text[pos] != 't')
+		return false;
+
 	// find by rolling hash is an option, may be a performance improvement in large text blocks
-	int pos = text.find_rh_case(strref("Many"));
-	if (pos<0 || text[pos] != 'M')
+	pos = text.find_rh_case(strref("Many"));
+	if (pos < 0 || text[pos] != 'M')
 		return false;
 
 	pos = text.find_rh_case(strref("widely"));
-	if (pos<0 || text[pos] != 'w')
+	if (pos < 0 || text[pos] != 'w')
 		return false;
 
 	// search character by character, usually performing well
 	pos = text.find_case("Many");
-	if (pos<0 || text[pos] != 'M')
+	if (pos < 0 || text[pos] != 'M')
 		return false;
 
 	// find the position of a secondary search
 	pos = text.find_after_last(' ', 'i');
-	if (pos<0 || text[pos] != 'i')
+	if (pos < 0 || text[pos] != 'i')
 		return false;
 
 	// find last string match
 	pos = text.find_last("on");
-	if (pos<0 || text[pos] != 'o')
+	if (pos < 0 || text[pos] != 'o')
 		return false;
 
 	pos = text.find(',');
-	if (pos<0 || text[pos] !=',')
+	if (pos < 0 || text[pos] != ',')
 		return false;
 
 	pos = text.find_after('i', pos);
-	if (pos<0 || (text[pos] !='i' && pos <= text.find('i')))
+	if (pos < 0 || (text[pos] != 'i' && pos <= text.find('i')))
 		return false;
 
 	pos = text.find_or_full(';', 10);
-	if (pos!=text.get_len())
+	if (pos != text.get_len())
 		return false;
 
 	pos = text.find_or_full('.', 10);
-	if (pos<=0 || text[pos]!='.')
+	if (pos <= 0 || text[pos] != '.')
 		return false;
 
 	pos = text.find(strref("this"));
-	if (pos<0 || text[pos]!='t')
+	if (pos < 0 || text[pos] != 't')
 		return false;
 
 	pos = text.find("among");
-	if (pos<0 || text[pos]!='a')
+	if (pos < 0 || text[pos] != 'a')
 		return false;
 
 	pos = text.find_case("This");
-	if (pos>=0)
+	if (pos >= 0)
 		return false;
 
 	pos = text.find_case("this");
-	if (pos<0 || text[pos]!='t')
+	if (pos < 0 || text[pos] != 't')
 		return false;
 
 	pos = text.find_last(strref("fi"));
-	if (pos<0 || text[pos]!='f')
+	if (pos < 0 || text[pos] != 'f')
 		return false;
 
 	pos = text.find_last("on");
-	if (pos<0 || text[pos]!='o')
+	if (pos < 0 || text[pos] != 'o')
 		return false;
 
+	return true;
+}
 
 
 
-
-
+bool wildcard_samples()
+{
 	// wildcard search examples
 	strref search_text("in 2 out of 5 cases the trees will outnumber the carrots, willoutnumber");
 
@@ -182,6 +189,23 @@ bool strref_samples()
 	strref search("the*will");
 	strref substr = search_text.find_wildcard(search);
 	printf("found \"" STRREF_FMT "\" matching \"" STRREF_FMT "\"\n", STRREF_ARG(substr), STRREF_ARG(search));
+	if (!substr.same_str_case("the trees will"))
+		return false;
+
+	// find word beginning with c
+	substr = search_text.find_wildcard("<c*>");
+	if (!substr.same_str_case("cases"))
+		return false;
+
+	// find word ending with e
+	substr = search_text.find_wildcard("<*%e>");
+	if (!substr.same_str_case("the"))
+		return false;
+
+	// find whole line
+	substr = search_text.find_wildcard("@*^");
+	if (!substr.same_str_case(search_text))
+		return false;
 
 	// using ranges and single character number
 	substr = search_text.find_wildcard(strref("[0-9] out of #"));
@@ -196,17 +220,21 @@ bool strref_samples()
 	// searching for substring but spaces are not allowed
 	substr = search_text.find_wildcard("will*{! }number");
 	printf("substr = " STRREF_FMT "\n", STRREF_ARG(substr));
+	if (!substr.same_str_case("willoutnumber"))
+		return false;
 
 	// search wildcard iteratively
 	search = "radio, gorilla, zebra, monkey, human, rat, car, ocelot, conrad, butler";
 	substr.clear();
-	while ((substr = search.wildcard_after("<*$r*$>", substr))) {
-		printf("Word with 'r' in it: \"" STRREF_FMT "\"\n", STRREF_ARG(substr));
-	}
+	printf("Words with 'r': ");
+	while ((substr = search.wildcard_after("<*$r*$>", substr)))
+		printf("\"" STRREF_FMT "\" ", STRREF_ARG(substr));
+	printf("\n");
 
 	// search for a more complex expression
 	search = strref(aSomeFiles, sizeof(aSomeFiles)-1);
 	substr.clear();
+	printf("Lines with two subsequent characters d-e (dd, de, ed, ee) and only alphanumeric or dot after:\n");
 	while ((substr = search.wildcard_after("@*@[d-e][d-e]*{0-9A-Za-z.}^", substr))) {
 		printf("\"" STRREF_FMT "\"\n", STRREF_ARG(substr));
 	}
@@ -221,8 +249,9 @@ bool strref_samples()
 	search = strref(aTextSample, sizeof(aTextSample)-1);
 	substr.clear();
 	while ((substr = search.wildcard_after("<*$[a-f][!a-f\\1-\\x40]*>", substr))) {
-		printf("\"" STRREF_FMT "\"\n", STRREF_ARG(substr));
+		printf("\"" STRREF_FMT "\" ", STRREF_ARG(substr));
 	}
+	printf("\n");
 	return true;
 
 }
@@ -301,7 +330,9 @@ bool strown_samples() {
 int main(int argc, char **argv) {
     if (!strref_samples())
         printf("strref sample failed\n");
-    if (!strown_samples())
+	if (!wildcard_samples())
+		printf("wildcard sample failed\n");
+	if (!strown_samples())
         printf("strown sample failed\n");
     return 0;
 }

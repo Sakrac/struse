@@ -65,16 +65,6 @@ typedef unsigned int strl_t;
 // internal helper functions for strref
 int _find_rh(const char *text, strl_t len, const char *comp, strl_t comp_len);
 int _find_rh_case(const char *text, strl_t len, const char *comp, strl_t comp_len);
-unsigned char int_tolower_macos_roman_ascii(unsigned char c);
-unsigned char int_toupper_macos_roman_ascii(unsigned char c);
-unsigned char int_tolower_amiga_ascii(unsigned char c);
-unsigned char int_toupper_amiga_ascii(unsigned char c);
-unsigned char int_toupper_win_ascii(unsigned char c);
-unsigned char int_tolower_win_ascii(unsigned char c);
-unsigned char int_tolower_ascii7(unsigned char c);
-unsigned char int_toupper_ascii7(unsigned char c);
-unsigned int int_tolower_unicode(unsigned int c);
-unsigned int int_toupper_unicode(unsigned int c);
 
 // strref holds a reference to a constant substring (const char*)
 class strref {
@@ -104,6 +94,9 @@ public:
 	// get fnv1a hash for string
 	unsigned int fnv1a(unsigned int seed = 2166136261) const;
 	unsigned int fnv1a_append(unsigned int base_fnv1a_hash) const { return fnv1a(base_fnv1a_hash); }
+    
+    // whitespace ignore fnv1a (any sequence whitespace is replaced by one space)
+    unsigned int fnv1a_ws(unsigned int seed = 2166136261) const;
 
 	// convert string to basic integer
 	int atoi() const;
@@ -149,16 +142,16 @@ public:
 	static bool is_control(unsigned char c) { return !is_ws(c) && !is_alphanumeric(c) && c!='_'; }
 
 	// choice of upper/lowercase conversions
-	static char tolower(char c) { return int_tolower_ascii7(c); }
-	static char toupper(char c) { return int_toupper_ascii7(c); }
-	static char tolower_win(char c) { return int_tolower_win_ascii(c); }
-	static char toupper_win(char c) { return int_toupper_win_ascii(c); }
-	static char tolower_amiga(char c) { return int_tolower_amiga_ascii(c); }
-	static char toupper_amiga(char c) { return int_toupper_amiga_ascii(c); }
-	static char tolower_macos(char c) { return int_tolower_macos_roman_ascii(c); }
-	static char toupper_macos(char c) { return int_toupper_macos_roman_ascii(c); }
-	static int tolower_utf8(int c) { return int_tolower_unicode(c); }
-	static int toupper_utf8(int c) { return int_toupper_unicode(c); }
+	static char tolower(char c);
+	static char toupper(char c);
+	static char tolower_win(char c);
+	static char toupper_win(char c);
+	static char tolower_amiga(char c);
+	static char toupper_amiga(char c);
+	static char tolower_macos(char c);
+	static char toupper_macos(char c);
+	static int tolower_unicode(int c);
+	static int toupper_unicode(int c);
 
 	// operators
 	// strref += int: move string forward (skip)
@@ -221,11 +214,9 @@ public:
 	// wildcard search
 	strref find_wildcard(const strref wild, strl_t pos = 0, bool case_sensitive = true) const;
 	strref next_wildcard(const strref wild, strref prev, bool case_sensitive = true) const {
-		return find_wildcard(wild, is_substr(prev.get()) ? (strl_t(prev.get()-get())+1) : 0, case_sensitive);
-	}
+		return find_wildcard(wild, is_substr(prev.get()) ? (strl_t(prev.get()-get())+1) : 0, case_sensitive); }
 	strref wildcard_after(const strref wild, strref prev, bool case_sensitive = true) const {
-		return find_wildcard(wild, is_substr(prev.get()) ? strl_t(prev.get()+prev.get_len()-get()) : 0, case_sensitive);
-	}
+		return find_wildcard(wild, is_substr(prev.get()) ? strl_t(prev.get()+prev.get_len()-get()) : 0, case_sensitive); }
 
 	// character filter by string, as in a wildcard [] operator
 	bool char_matches_ranges(unsigned char c) const;
@@ -255,8 +246,7 @@ public:
 	unsigned int prefix_len(const strref str, char same1, char same2) const;
 	bool is_prefix_of(const strref str) const { return prefix_len(str)==get_len(); }
 	bool is_prefix_of(const strref str, char same1, char same2) const {
-		return prefix_len(str, same1, same2)==get_len();
-	}
+		return prefix_len(str, same1, same2)==get_len(); }
 	bool is_prefix_word(const strref str) const { return prefix_len(str)==get_len() &&
 			(str.get_len()==length || !is_alphanumeric(str[length])); }
 	bool is_prefix_case_of(const strref str) const { return prefix_len_case(str)==get_len(); }
@@ -345,6 +335,8 @@ public:
 	int substr_count(const strref str) const; // count the occurrences of the argument in this string
 	int count_repeat(char c, strl_t pos) const;
 	int count_repeat_reverse(char c, strl_t pos) const;
+    int count_lines() const;
+    int count_lines(strl_t pos) const { return strref(string, pos<length ? pos : length).count_lines(); }
 
 	// rolling hash find
 	int find_rh(strref str) const { return _find_rh(get(), get_len(), str.get(), str.get_len()); }
@@ -422,8 +414,7 @@ public:
 
 	// return number of characters that can be a label
 	int len_label() const { if (valid()) { const char *s = string; strl_t r = length;
-		while (is_valid_label(*s) && r) { s++; r--; } return length-r; } return 0;
-	}
+		while (is_valid_label(*s) && r) { s++; r--; } return length-r; } return 0; }
 
 	// return whether or not this string is a number
 	bool is_number() const { if (int r = length) { if (const char *s = string) {
@@ -512,12 +503,14 @@ public:
         if (e>=0) return get_substr(s+1, e-s-1); } return strref(); }
 
 	// tokenization
-	strref split(strl_t pos) { if (pos>get_len()) pos = get_len();  strref ret = strref(string, pos); skip(pos); return ret; }
+	strref split(strl_t pos) { if (pos>get_len()) pos = get_len();
+        strref ret = strref(string, pos); skip(pos); return ret; }
 
 	strref split_token(char c) { strref r; int t = find(c); if (t>=0) { r = *this + (t+1); length = t; } return r; }
 	strref split_token_trim(char c) { strref r = split_token(c); trim_whitespace(); r.trim_whitespace(); return r; }
 
-	strref line();	// return the current line and skip this to next line
+	strref next_line(); // return the current line even if empty and skip this to line after
+	strref line() { strref ret; while (valid() && !ret.valid()) ret = next_line(); return ret;}	// return the current or next valid line skip this to line after
 	strref next_token(char c) { int o = find(c); if (o<0) o = get_len(); return split(o); }
 	strref token_chunk(char c) const { int o = find(c); if (o<0) return *this; return strref(string, o); }
 	void token_skip(const strref chunk) { skip(chunk.length+1); }
@@ -530,7 +523,7 @@ public:
 	strref within_last(char a1, char a2, char b) const { int f = find_last(a1, a2)+1;
 		int l = strref(string+f, length-f).find(b); if (l<0) l = 0; return strref(string+f, l); }
 
-	strref get_quote_xml() const; // TODO: Check rule
+	strref get_quote_xml() const;
 	int find_quoted_xml(char d) const; // returns length up to the delimiter d with xml quotation rules, or -1 if delimiter not found
 	int find_quoted(char d) const; // returns length up to the delimiter d with c/c++ quotation rules, or -1 if delimiter not found
 
@@ -816,31 +809,21 @@ public:
 
 	// c style sprintf (work around windows _s preference)
 #ifdef _WIN32
-	int sprintf(const char *format, ...) {
-		va_list args; va_start(args, format);
-		set_len_int(vsnprintf_s(charstr(), cap(), _TRUNCATE, format, args)); va_end(args); return len();
-	}
-	int sprintf_at(strl_t pos, const char *format, ...) {
-		va_list args; va_start(args, format);
-		int l = vsnprintf_s(charstr()+pos, cap()-pos, _TRUNCATE, format, args); if (l+pos>len()) set_len(l+pos); va_end(args); return l;
-	}
-	int sprintf_append(const char *format, ...) {
-		va_list args; va_start(args, format);
-		int l = vsnprintf_s(end(), cap()-len(), _TRUNCATE, format, args); va_end(args); add_len_int(l); return l;
-	}
+	int sprintf(const char *format, ...) { va_list args; va_start(args, format);
+		set_len_int(vsnprintf_s(charstr(), cap(), _TRUNCATE, format, args)); va_end(args); return len(); }
+	int sprintf_at(strl_t pos, const char *format, ...) { va_list args; va_start(args, format);
+		int l = vsnprintf_s(charstr()+pos, cap()-pos, _TRUNCATE, format, args);
+        if (l+pos>len()) set_len(l+pos); va_end(args); return l; }
+	int sprintf_append(const char *format, ...) { va_list args; va_start(args, format);
+		int l = vsnprintf_s(end(), cap()-len(), _TRUNCATE, format, args); va_end(args); add_len_int(l); return l; }
 #else
-	int sprintf(const char *format, ...) {
-		va_list args; va_start(args, format);
-		set_len_int(vsnprintf(charstr(), cap(), format, args)); va_end(args); return len();
-	}
-	int sprintf_at(strl_t pos, const char *format, ...) {
-		va_list args; va_start(args, format);
-		int l = vsnprintf(charstr()+pos, cap()-pos, format, args); if (l+pos>len()) set_len(l+pos); va_end(args); return l;
-	}
-	int sprintf_append(const char *format, ...) {
-		va_list args; va_start(args, format);
-		int l = vsnprintf(end(), cap()-len(), format, args); va_end(args); add_len_int(l); return l;
-	}
+	int sprintf(const char *format, ...) { va_list args; va_start(args, format);
+		set_len_int(vsnprintf(charstr(), cap(), format, args)); va_end(args); return len(); }
+	int sprintf_at(strl_t pos, const char *format, ...) { va_list args; va_start(args, format);
+		int l = vsnprintf(charstr()+pos, cap()-pos, format, args);
+        if (l+pos>len()) set_len(l+pos); va_end(args); return l; }
+	int sprintf_append(const char *format, ...) { va_list args; va_start(args, format);
+		int l = vsnprintf(end(), cap()-len(), format, args); va_end(args); add_len_int(l); return l; }
 #endif
 	// replace instances of character c with character d
 	strref replace(char c, char d) { if (char *b = charstr()) {
@@ -850,6 +833,7 @@ public:
 	strref replace(const strref a, const strref b) {
 		set_len(_strmod_inplace_replace_int(charstr(), len(), cap(), a, b)); return get_strref(); }
 
+    // replace a string found within this string with another string
     void exchange(strl_t pos, strl_t size, const strref insert) {
         set_len_int(_strmod_exchange(charstr(), len(), cap(), pos, size, insert)); }
     
@@ -1183,11 +1167,9 @@ unsigned char int_toupper_ascii7(unsigned char c)
 static strl_t int_get_esc_code(const char *buf, strl_t left, unsigned char &code)
 {
 	strl_t step = 0;
-	if (!left) {
-		code = 0;
+	if (!left)
 		return step;
-	}
-	char c = *buf++;
+    char c = *buf++;
 	left--;
 	step++;
 	if (c=='x' && left && strref::is_hex(*buf)) {
@@ -1242,6 +1224,18 @@ static strl_t int_get_esc_code(const char *buf, strl_t left, unsigned char &code
 	return step;
 }
 
+// tolower/toupper implementation
+char strref::tolower(char c) { return int_tolower_ascii7(c); }
+char strref::toupper(char c) { return int_toupper_ascii7(c); }
+char strref::tolower_win(char c) { return int_tolower_win_ascii(c); }
+char strref::toupper_win(char c) { return int_toupper_win_ascii(c); }
+char strref::tolower_amiga(char c) { return int_tolower_amiga_ascii(c); }
+char strref::toupper_amiga(char c) { return int_toupper_amiga_ascii(c); }
+char strref::tolower_macos(char c) { return int_tolower_macos_roman_ascii(c); }
+char strref::toupper_macos(char c) { return int_toupper_macos_roman_ascii(c); }
+int strref::tolower_unicode(int c) { return int_tolower_unicode(c); }
+int strref::toupper_unicode(int c) { return int_toupper_unicode(c); }
+
 // use printf to print current string on a single line
 void strref::writeln()
 {
@@ -1266,7 +1260,7 @@ strref::strref(const char *str)
 	}
 }
 
-// get an fnv1a hash
+// get fnv1a hash of a string
 unsigned int strref::fnv1a(unsigned int seed) const
 {
 	unsigned const char *scan = (unsigned const char*)string;
@@ -1275,6 +1269,27 @@ unsigned int strref::fnv1a(unsigned int seed) const
 	while (left--)
 		hash = (*scan++ ^ hash) * 16777619;
 	return hash;
+}
+
+// get fnv1a hash of a string and treat any number whitespace as a single space
+unsigned int strref::fnv1a_ws(unsigned int seed) const
+{
+    unsigned const char *scan = (unsigned const char*)string;
+    unsigned int hash = seed;
+    strl_t left = length;
+    while (left--) {
+        unsigned char c = *scan++;
+        if (c<' ')
+            c = ' ';
+        hash = (*scan++ ^ hash) * 16777619;
+        if (c==' ') {
+            while (left && *scan<=0x20) {
+                left--;
+                scan++;
+            }
+        }
+    }
+    return hash;
 }
 
 // convert numeric string to integer
@@ -1433,63 +1448,58 @@ int strref::count_char(char c) const
 	return count;
 }
 
-// find a character in a string after pos
-int strref::find(char c) const
+// find a character in a string
+static int int_find_char(char c, const char *scan, strl_t length)
 {
-	if (!valid())
-		return -1;
 	strl_t left = length;
-	const char *scan = string;
 	while (left) {
-		if (*scan++==c)
-			return length-left;
+		if (*scan++ == c)
+			return length - left;
 		left--;
 	}
 	return -1;
 }
 
+// find a character in a string after pos
+int strref::find(char c) const
+{
+	if (!valid())
+		return -1;
+	return int_find_char(c, string, length);
+}
+
+// find an instance of a char after pos
 int strref::find_after(char c, strl_t pos) const
 {
 	if (length>pos) {
-		strl_t left = length-pos-1;
-		const char *scan = string+pos+1;
-		while (left) {
-			if (*scan++==c)
-				return length-left;
-			left--;
-		}
+		int o = int_find_char(c, string + pos + 1, length - pos - 1);
+		if (o >= 0)
+			return o + pos + 1;
 	}
 	return -1;
 }
 
+// find an instance of a char at pos or after
 int strref::find_at(char c, strl_t pos) const
 {
 	if (length>pos) {
-		strl_t left = length-pos;
-		const char *scan = string+pos;
-		while (left) {
-			if (*scan++==c)
-				return length-left;
-			left--;
-		}
+		int o = int_find_char(c, string + pos, length - pos);
+		if (o >= 0)
+			return o + pos;
 	}
 	return -1;
 }
 
+// find an instance of a char at pos or after or return full string
 int strref::find_or_full(char c, strl_t pos) const
 {
 	if (!string)
 		return 0;
 	if (pos>=length)
 		return length;
-
-	strl_t left = length-pos;
-	const char *scan = string+pos;
-	while (left) {
-		if (*scan++==c)
-			return length-left;
-		left--;
-	}
+	int o = int_find_char(c, string + pos, length - pos);
+	if (o >= 0)
+		return o + pos;
 	return length;
 }
 
@@ -1556,12 +1566,35 @@ int strref::find_last(char c, char d) const
 	return -1;
 }
 
+// compare a string with a substring case sensitive
+static bool int_compare_substr_case(const char *scan, strl_t length, const char *check, strl_t chk_len)
+{
+	if (length < chk_len)
+		return false;
+	for (strl_t cl = 0; cl<chk_len; cl++) {
+		if (*scan++ != *check++)
+			return false;
+	}
+	return true;
+}
+
+// compare a string with a substring case sensitive
+static bool int_compare_substr(const char *scan, strl_t length, const char *check, strl_t chk_len)
+{
+    if (length < chk_len)
+        return false;
+    for (strl_t cl = 0; cl<chk_len; cl++) {
+        if (int_tolower_ascii7(*scan++) != int_tolower_ascii7(*check++))
+            return false;
+    }
+    return true;
+}
+
 // case sensitive rolling hash find substring
 int _find_rh_case(const char *text, strl_t length, const char *comp, strl_t comp_length)
 {
 	if (length < comp_length)
 		return -1;
-
 	unsigned int roll_hash = 0;
 	unsigned int hash = 0;
 	unsigned int hash_remove = 1;
@@ -1582,16 +1615,7 @@ int _find_rh_case(const char *text, strl_t length, const char *comp, strl_t comp
 	for (;;) {
 		if (roll_hash == hash) {
 			// compare!
-			const char *c1 = text - comp_length;
-			const char *c2 = comp;
-			bool match = true;
-			for (strl_t cl = 0; cl<comp_length; cl++) {
-				if (*c1++ != *c2++) {
-					match = false;
-					break;
-				}
-			}
-			if (match)
+			if (int_compare_substr_case(text - comp_length, left + comp_length, comp, comp_length))
 				return length - comp_length - left;
 		}
 		if (!left)
@@ -1629,16 +1653,7 @@ int _find_rh(const char *text, strl_t length, const char *comp, strl_t comp_leng
 	for (;;) {
 		if (roll_hash == hash) {
 			// compare!
-			const char *c1 = text - comp_length;
-			const char *c2 = comp;
-			bool match = true;
-			for (strl_t cl = 0; cl<comp_length; cl++) {
-				if (*c1++ != *c2++) {
-					match = false;
-					break;
-				}
-			}
-			if (match)
+			if (int_compare_substr(text - comp_length, left + comp_length, comp, comp_length))
 				return left - length + comp_length;
 		}
 		if (!left)
@@ -1705,15 +1720,7 @@ bool strref::same_substr(const strref str, strl_t pos) const {
 	if ((str.length+pos) > length)
 		return false;
 
-	const char *scan = string + pos;
-	const char *compare = str.string;
-	strl_t compare_left = str.length;
-	while (compare_left) {
-		if (int_tolower_ascii7(*scan++)!=int_tolower_ascii7(*compare++))
-			return false;
-		compare_left--;
-	}
-	return true;
+	return int_compare_substr(string + pos, length - pos, str.string, str.length);
 }
 
 // allow escape codes in search string
@@ -1743,15 +1750,7 @@ bool strref::same_substr_case(const strref str, strl_t pos) const {
 	if ((str.length+pos) > length)
 		return false;
 
-	const char *scan = string + pos;
-	const char *compare = str.string;
-	strl_t compare_left = str.length;
-	while (compare_left) {
-		if (*scan++!=*compare++)
-			return false;
-		compare_left--;
-	}
-	return true;
+	return int_compare_substr_case(string + pos, length - pos, str.string, str.length);
 }
 
 // allow escape codes in search string
@@ -1902,15 +1901,7 @@ bool strref::same_str_case(const strref str) const
 	if (length!=str.length)
 		return false;
 
-	const char *scan = string;
-	const char *compare = str.string;
-	strl_t left = length;
-	while (left) {
-		if (*scan++!=*compare++)
-			return false;
-		left--;
-	}
-	return true;
+	return int_compare_substr_case(string, length, str.string, str.length);
 }
 
 // compare two strings case sensitive where character same1 is considered equal to same2
@@ -2081,22 +2072,16 @@ int strref::find(const strref str) const
 		return -1;
 
 	const char *scan = string;
-	const char *compare = str.string, *compare_chk = compare;
-	strl_t left2 = str.length;
-
 	strl_t left = length;
-	while (left>=left2) {
-		if (int_tolower_ascii7(*scan++)==int_tolower_ascii7(*compare_chk)) {
-			const char *scan_chk = scan;
-			compare_chk++;
-			while (--left2) {
-				if (int_tolower_ascii7(*scan_chk++)!=int_tolower_ascii7(*compare_chk++)) {
-					compare_chk = compare;
-					left2 = str.length;
-					break;
-				}
-			}
-			if (!left2)
+
+	const char *compare = str.string;
+	strl_t find_len = str.length;
+
+	char c = int_tolower_ascii7(*compare++);
+
+	while (left>=find_len) {
+		if (int_tolower_ascii7(*scan++)==c) {
+			if (int_compare_substr(scan, left - 1, compare, find_len - 1))
 				return length-left;
 		}
 		left--;
@@ -2110,26 +2095,21 @@ int strref::find(const strref str, strl_t pos) const
 	if (!str.valid() || !valid() || length<str.length)
 		return -1;
 
-	const char *scan = string+pos;
-	const char *compare = str.string, *compare_chk = compare;
-	strl_t left2 = str.length;
-	strl_t left = length;
-	int first = int_tolower_ascii7(*compare_chk++);
-	while (left>=left2) {
-		if (int_tolower_ascii7(*scan++)==first) {
-			const char *pb = scan;
-			while (--left2) {
-				if (int_tolower_ascii7(*pb++)!=int_tolower_ascii7(*compare_chk++)) {
-					compare_chk = compare+1;
-					left2 = str.length;
-					break;
-				}
-			}
-			if (!left2)
-				return length-left;
+	const char *scan = string + pos;
+	strl_t left = length - pos;
+
+	const char *compare = str.string;
+	strl_t find_len = str.length;
+
+	char c = int_tolower_ascii7(*compare++);
+	while (left >= find_len) {
+		if (int_tolower_ascii7(*scan++) == c) {
+			if (int_compare_substr(scan, left - 1, compare, find_len - 1))
+				return length - left;
 		}
 		left--;
 	}
+
 	return -1;
 }
 
@@ -2300,6 +2280,97 @@ int strref::find_case_esc(const strref str, strl_t pos) const
 	return -1;
 }
 
+// checks if a range is an exclusion
+static strref int_check_exclude(strref range, bool &include)
+{
+	const char *rng = range.get();
+	strl_t rng_left = range.get_len();
+	if (rng_left && *rng == '!') {
+		include = false;
+		return range + 1;
+	}
+	include = true;
+	return range;
+}
+
+// checks if character c matches range
+static bool int_char_match_range_case(char c, const char *rng_chk, strl_t rng_lft)
+{
+	// no match yet, check skipped character against allowed range
+	bool match = false;
+	while (rng_lft) {
+		unsigned char m = (unsigned char)*rng_chk++;
+		rng_lft--;
+		// escape code?
+		if (m == '\\' && rng_lft) {
+			strl_t skip = int_get_esc_code(rng_chk, rng_lft, m);
+			rng_chk += skip;
+			rng_lft -= skip;
+		}
+		// range?
+		if (rng_lft>1 && *rng_chk == '-') {
+			rng_chk++;
+			rng_lft--;
+			unsigned char n = (unsigned char)*rng_chk++;
+			rng_lft--;
+			// escape code for range end?
+			if (n == '\\' && rng_lft) {
+				strl_t skip = int_get_esc_code(rng_chk, rng_lft, n);
+				rng_chk += skip;
+				rng_lft -= skip;
+			}
+			if (c >= m && c <= n) {
+				match = true;
+				break;
+			}
+		}
+		else if (c == m) {
+			match = true;
+			break;
+		}
+	}
+	return match;
+}
+
+// checks if character c matches range
+static bool int_char_match_range(char c, const char *rng_chk, strl_t rng_lft)
+{
+	// no match yet, check skipped character against allowed range
+	bool match = false;
+	while (rng_lft) {
+		unsigned char m = (unsigned char)*rng_chk++;
+		rng_lft--;
+		// escape code?
+		if (m == '\\' && rng_lft) {
+			strl_t skip = int_get_esc_code(rng_chk, rng_lft, m);
+			rng_chk += skip;
+			rng_lft -= skip;
+		}
+		// range?
+		if (rng_lft>1 && *rng_chk == '-') {
+			rng_chk++;
+			rng_lft--;
+			unsigned char n = (unsigned char)*rng_chk++;
+			rng_lft--;
+			// escape code for range end?
+			if (n == '\\' && rng_lft) {
+				strl_t skip = int_get_esc_code(rng_chk, rng_lft, n);
+				rng_chk += skip;
+				rng_lft -= skip;
+			}
+			if (c >= int_tolower_ascii7(m) && c <= int_tolower_ascii7(n)) {
+				match = true;
+				break;
+			}
+		}
+		else if (c == int_tolower_ascii7(m)) {
+			match = true;
+			break;
+		}
+	}
+	return match;
+}
+
 // find case sensitive allow escape codes (\x => x) in search string
 int strref::find_case_esc_range(const strref str, const strref range, strl_t pos) const
 {
@@ -2324,14 +2395,8 @@ int strref::find_case_esc_range(const strref str, const strref range, strl_t pos
 	}
 
 	// check if range is inclusive or exclusive
-	const char *rng = range.get();
-	strl_t rng_len = range.get_len();
-	bool include = true;
-	if (*rng=='!') {
-		include = false;
-		rng++;
-		rng_len--;
-	}
+	bool include;
+	strref rng = int_check_exclude(range, include);
 
 	// sweep the scan buffer for the matching string
 	while (scan_left) {
@@ -2352,21 +2417,7 @@ int strref::find_case_esc_range(const strref str, const strref range, strl_t pos
 					compare += skip;
 					compare_left -= skip;
 				}
-				if (compare_left>1 && *chk_compare=='-') {
-					compare_left++;
-					compare_left--;
-					unsigned char e = (unsigned char)*chk_compare++;
-					compare_left--;
-					if (e=='\\' && compare_left) {
-						strl_t skip = int_get_esc_code(compare, compare_left, e);
-						compare_left += skip;
-						compare_left -= skip;
-					}
-					if (c<d || c>e) {
-						chk_compare_left = 1;
-						break;
-					}
-				} else if (c!=d) {
+				if (c!=d) {
 					chk_compare_left = 1;
 					break;
 				}
@@ -2376,37 +2427,8 @@ int strref::find_case_esc_range(const strref str, const strref range, strl_t pos
 		}
 
 		// no match yet, check character against range
-		bool match = false;
-		const char *rng_chk = rng;
-		strl_t rng_lft = rng_len;
-		while (rng_lft) {
-			unsigned char m = (unsigned char)*rng_chk++;
-			rng_lft--;
-			if (m=='\\' && rng_lft) {
-				strl_t skip = int_get_esc_code(rng_chk, rng_lft, m);
-				rng_chk += skip;
-				rng_lft -= skip;
-			}
-			if (rng_lft>1 && *rng_chk=='-') {
-				rng_chk++;
-				rng_lft--;
-				unsigned char n = (unsigned char)*rng_chk++;
-				rng_lft--;
-				if (n=='\\' && rng_lft) {
-					strl_t skip = int_get_esc_code(rng_chk, rng_lft, n);
-					rng_chk += skip;
-					rng_lft -= skip;
-				}
-				if (b>=m && b<=n) {
-					match = true;
-					break;
-				}
-			} else if (b==m) {
-				match = true;
-				break;
-			}
-		}
 		// check if character is allowed
+		bool match = int_char_match_range_case(b, rng.get(), rng.get_len());
 		if ((match && !include) || (!match && include))
 			return -1;
 
@@ -2415,7 +2437,7 @@ int strref::find_case_esc_range(const strref str, const strref range, strl_t pos
 	return -1;
 }
 
-// find case sensitive allow escape codes (\x => x) in search string
+// find substring, allow escape codes (\x => x) in search string
 int strref::find_esc_range(const strref str, const strref range, strl_t pos) const
 {
 	if (!str.valid() || !valid() || pos>=get_len() || !range.get_len())
@@ -2439,14 +2461,8 @@ int strref::find_esc_range(const strref str, const strref range, strl_t pos) con
 	}
 
 	// check if range is inclusive or exclusive
-	const char *rng = range.get();
-	strl_t rng_len = range.get_len();
-	bool include = true;
-	if (*rng=='!') {
-		include = false;
-		rng++;
-		rng_len--;
-	}
+	bool include;
+	strref rng = int_check_exclude(range, include);
 
 	// sweep the scan buffer for the matching string
 	while (scan_left) {
@@ -2467,21 +2483,7 @@ int strref::find_esc_range(const strref str, const strref range, strl_t pos) con
 					compare += skip;
 					compare_left -= skip;
 				}
-				if (compare_left>1 && *chk_compare=='-') {
-					compare_left++;
-					compare_left--;
-					unsigned char e = (unsigned char)int_tolower_ascii7(*chk_compare++);
-					compare_left--;
-					if (e=='\\' && compare_left) {
-						strl_t skip = int_get_esc_code(compare, compare_left, e);
-						compare_left += skip;
-						compare_left -= skip;
-					}
-					if (c<d || c>e) {
-						chk_compare_left = 1;
-						break;
-					}
-				} else if (c!=d) {
+				if (c!=d) {
 					chk_compare_left = 1;
 					break;
 				}
@@ -2491,36 +2493,8 @@ int strref::find_esc_range(const strref str, const strref range, strl_t pos) con
 		}
 
 		// no match yet, check character against range
-		bool match = false;
-		const char *rng_chk = rng;
-		strl_t rng_lft = rng_len;
-		while (rng_lft) {
-			unsigned char m = *rng_chk++;
-			rng_lft--;
-			if (m=='\\' && rng_lft) {
-				strl_t skip = int_get_esc_code(rng_chk, rng_lft, m);
-				rng_chk += skip;
-				rng_lft -= skip;
-			}
-			if (rng_lft>1 && *rng_chk=='-') {
-				rng_chk++;
-				rng_lft--;
-				unsigned char n = (unsigned char)*rng_chk++;
-				rng_lft--;
-				if (n=='\\' && rng_lft) {
-					strl_t skip = int_get_esc_code(rng_chk, rng_lft, n);
-					rng_chk += skip;
-					rng_lft -= skip;
-				}
-				if (b>=int_tolower_ascii7(m) && b<=int_tolower_ascii7(n)) {
-					match = true;
-					break;
-				}
-			} else if (b==int_tolower_ascii7(m)) {
-				match = true;
-				break;
-			}
-		}
+		bool match = int_char_match_range(b, rng.get(), rng.get_len());
+
 		// check if character is allowed
 		if ((match && !include) || (!match && include))
 			return -1;
@@ -2716,8 +2690,28 @@ int strref::count_repeat_reverse(char c, strl_t pos) const {
 	return count;
 }
 
+// count number of lines with any line ending standard
+int strref::count_lines() const {
+    const char *scan = string;
+    strl_t left = length;
+    int count = 0;
+    while (left) {
+        char c = *scan++;
+        left--;
+        if (c==0x0a || c==0x0d) {
+            count++;
+            if (left && ((c==0x0a && *scan==0x0d) || (c==0x0d && *scan==0x0a))) {
+                scan++;
+                left--;
+            }
+        }
+    }
+    return count;
+}
+
 
 // find any char from str in this string at position
+//	(does not check for escape codes or ranges)
 int strref::find_any_char_of(const strref range, strl_t pos) const {
 	if (pos>=length)
 		return -1;
@@ -2740,7 +2734,8 @@ int strref::find_any_char_of(const strref range, strl_t pos) const {
 	return -1;
 }
 
-// allow a range of characters using '-' such as a-fq0-5 == abcdefq012345
+// find a character matching a range, allow a range of characters using '-'
+// such as a-fq0-5 == abcdefq012345 and prefix ! to exclude
 int strref::find_any_char_or_range(const strref range, strl_t pos) const {
 	if (pos>=length)
 		return -1;
@@ -2748,30 +2743,14 @@ int strref::find_any_char_or_range(const strref range, strl_t pos) const {
 	const char *scan = get() + pos;
 	strl_t left = length-pos;
 
+	bool include;
+	strref rng = int_check_exclude(range, include);
+
 	while (left) {
 		unsigned char c = (unsigned char)*scan++;
-
-		const char *cmp = range.string;
-		strl_t rng_left = range.length;
-		while (rng_left) {
-			unsigned char m = (unsigned char)*cmp++;
-			rng_left--;
-			if (m=='\\' && rng_left) {	// \?, \-
-				strl_t skip = int_get_esc_code((const char*)cmp, rng_left, m);
-				if (c==m)
-					return length - left;
-				cmp += skip;
-				rng_left -= skip;
-			} else if (rng_left>1 && *cmp=='-') {	// a-z
-				cmp++;
-				int n = *cmp++;
-				rng_left -= 2;
-				if (c>=m && c<=n)
-					return length - left;
-			} else if (c==m)
-				return length - left;
-		}
-
+		bool match = int_char_match_range_case(c, rng.get(), rng.get_len());
+		if ((match && include) || (!match && !include))
+			return length - left;
 		left--;
 	}
 	return -1;
@@ -2787,61 +2766,23 @@ int strref::find_range_char_within_range(const strref range_find, const strref r
 	strl_t l = length-pos;
 
 	// check if range is inclusive or exclusive
-	const char *rng_w = range_within.get();
-	strl_t rng_w_len = range_within.get_len();
-	bool include = true;
-	if (*rng_w=='!') {
-		include = false;
-		rng_w++;
-		rng_w_len--;
-	}
+	bool include_find;
+	strref rng_f = int_check_exclude(range_find, include_find);
+
+	bool include_within;
+	strref rng_w = int_check_exclude(range_within, include_within);
 
 	while (l) {
 		unsigned char c = (unsigned char)*scan++;
-		const char *range_f_chk = range_find.string;
-		strl_t range_f_left = range_find.length;
-		while (range_f_left) {
-			unsigned char m = (unsigned char)*range_f_chk++;
-			range_f_left--;
-			if (m=='\\' && range_f_left) {	// \?, \-
-				strl_t skip = int_get_esc_code((const char*)range_f_chk, range_f_left, m);
-				if (c==m)
-					return length - l;
-				range_f_chk += skip;
-				range_f_left -= skip;
-			} else if (range_f_left>1 && *range_f_chk=='-') {	// a-z
-				range_f_chk++;
-				int n = *range_f_chk++;
-				range_f_left -= 2;
-				if (c>=m && c<=n)
-					return length - l;
-			} else if (c==m)
-				return length - l;
-		}
+		bool match_find = int_char_match_range_case(c, rng_f.get(), rng_f.get_len());
+		if ((match_find && include_find) || (!match_find && !include_find))
+			return length - l;
 
 		// no match yet, check skipped character against allowed range
-		bool match = false;
-		const char *rng_chk = rng_w;
-		strl_t rng_lft = rng_w_len;
-		while (rng_lft) {
-			unsigned char m = (unsigned char)*rng_chk++;
-			rng_lft--;
-			if (rng_lft>1 && *rng_chk=='-') {
-				rng_chk++;
-				rng_lft--;
-				unsigned char n = (unsigned char)*rng_chk++;
-				rng_lft--;
-				if (c>=m && c<=n) {
-					match = true;
-					break;
-				}
-			} else if (c==m) {
-				match = true;
-				break;
-			}
-		}
+		bool match = int_char_match_range_case(c, rng_w.get(), rng_w.get_len());
+
 		// check if character is allowed
-		if ((match && !include) || (!match && include))
+		if ((match && !include_within) || (!match && include_within))
 			return -1;
 		l--;
 	}
@@ -2851,46 +2792,9 @@ int strref::find_range_char_within_range(const strref range_find, const strref r
 // check if character matches a given range (this)
 bool strref::char_matches_ranges(unsigned char c) const {
 	// check if range is inclusive or exclusive
-	const char *rng = get();
-	strl_t rng_left = get_len();
-	bool include = true;
-	if (*rng=='!') {
-		include = false;
-		rng++;
-		rng_left--;
-	}
-
-	bool match = false;
-	while (rng_left) {
-		unsigned char m = (unsigned char)*rng++;
-		rng_left--;
-		// check for escape code
-		if (m=='\\' && rng_left) {	// \?, \-
-			strl_t skip = int_get_esc_code(rng, rng_left, m);
-			rng += skip;
-			rng_left -= skip;
-		}
-
-		// check for range
-		if (rng_left>1 && *rng=='-') {	// a-z
-			unsigned char o = rng[1];
-			rng += 2;
-			rng_left -= 2;
-			// check for escape code for ranged character
-			if (o=='\\' && rng_left) {	// \?, \-
-				strl_t skip = int_get_esc_code(rng, rng_left, o);
-				rng += skip;
-				rng_left -= skip;
-			}
-			if (c>=m && c<=o) {
-				match = true;
-				break;
-			}
-		} else if (c==m) {
-			match = true;
-			break;
-		}
-	}
+	bool include;
+	strref rng = int_check_exclude(*this, include);
+	bool match = int_char_match_range_case(c, rng.get(), rng.get_len());
 	return (match && include) || (!match && !include);
 }
 
@@ -2898,6 +2802,7 @@ bool strref::char_matches_ranges(unsigned char c) const {
 
 #define MAX_WILDCARD_SEGMENTS 64
 #define MAX_WILDCARD_STEPS 48
+#define MAX_WILDCARD_SEARCH_STACK 32
 enum WILDCARD_SEGMENT_TYPE {
 	WCST_END,
 	WCST_FIND_SUBSTR,
@@ -2964,7 +2869,7 @@ static int _build_wildcard_steps(const strref wild, strref *segs, char *type, in
 		if (numSeg > (MAX_WILDCARD_SEGMENTS-4) || numType > (MAX_WILDCARD_STEPS-2))
 			return strref();
 		int next_pos = wild.find_any_char_of(_wildcard_control, pos);
-		if (next_pos<0) { // completed?
+		if (next_pos<0) { // completed? (found no wildcard token)
 			// add last segment if there was one
 			if (wild.get_len() >(strl_t)last) {
 				segs[numSeg++] = wild.get_substr(last, wild.get_len()-last);
@@ -2983,8 +2888,7 @@ static int _build_wildcard_steps(const strref wild, strref *segs, char *type, in
 						segs[numSeg++] = range;
 					type[numType++] = search ? (range ? WCST_FIND_SUBSTR_RANGE : WCST_FIND_SUBSTR) : WCST_NEXT_SUBSTR;
 				}
-				pos = next_pos+1;
-				last = pos;
+				last = pos = next_pos+1;
 				range.clear();
 				// check for substring character filter
 				if (strl_t(pos) < wild.get_len()) {
@@ -2992,29 +2896,23 @@ static int _build_wildcard_steps(const strref wild, strref *segs, char *type, in
 						case '{': {	// user defined character filter
 							int range_end = wild.find_after('}', pos);
 							if (range_end > 0) {
+								range = wild.get_substr(pos+1, range_end-pos);
+								last = pos = range_end + 1;
+							} else
 								pos++;
-								range = wild.get_substr(pos, range_end-pos);
-								pos = range_end + 1;
-								last = pos;
-							} else {
-								pos++;
-							}
 							break;
 						}
 						case '%':	// % => no whitespaces
 							range = _no_whitespace_range;
-							pos++;
-							last = pos;
+							last = ++pos;
 							break;
 						case '@':	// @ => no line break
 							range = _no_enter_range;
-							pos++;
-							last = pos;
+							last = ++pos;
 							break;
 						case '$':	// $ => only alphanumeric characters
 							range = _alphanumeric_range;
-							pos++;
-							last = pos;
+							last = ++pos;
 							break;
 					}
 				}
@@ -3024,6 +2922,8 @@ static int _build_wildcard_steps(const strref wild, strref *segs, char *type, in
 			case '<': // < = first character of word
 				if (next_pos > last) {
 					segs[numSeg++] = wild.get_substr(last, next_pos-last);
+					if (search && range)
+						segs[numSeg++] = range;
 					type[numType++] = search ? (range ? WCST_FIND_SUBSTR_RANGE : WCST_FIND_SUBSTR) : WCST_NEXT_SUBSTR;
 					search = false;
 					range.clear();
@@ -3032,13 +2932,15 @@ static int _build_wildcard_steps(const strref wild, strref *segs, char *type, in
 					segs[numSeg++] = range;
 				type[numType++] = search ? (range ? WCST_FIND_WORD_START_RANGED : WCST_FIND_WORD_START) : WCST_NEXT_WORD_START;
 				search = false;
-				last = next_pos+1;
-				pos = last;
+				range.clear();
+				pos = last = next_pos+1;
 				break;
 
 			case '>': // > = first character after word
 				if (next_pos > last) {
 					segs[numSeg++] = wild.get_substr(last, next_pos-last);
+					if (search && range)
+						segs[numSeg++] = range;
 					type[numType++] = search ? (range ? WCST_FIND_SUBSTR_RANGE : WCST_FIND_SUBSTR) : WCST_NEXT_SUBSTR;
 					search = false;
 					range.clear();
@@ -3047,13 +2949,15 @@ static int _build_wildcard_steps(const strref wild, strref *segs, char *type, in
 					segs[numSeg++] = range;
 				type[numType++] = search ? (range ? WCST_FIND_WORD_END_RANGED : WCST_FIND_WORD_END) : WCST_NEXT_WORD_END;
 				search = false;
-				last = next_pos+1;
-				pos = last;
+				range.clear();
+				pos = last = next_pos+1;
 				break;
 
 			case '@': // < = first character of line
 				if (next_pos > last) {
 					segs[numSeg++] = wild.get_substr(last, next_pos-last);
+					if (search && range)
+						segs[numSeg++] = range;
 					type[numType++] = search ? (range ? WCST_FIND_SUBSTR_RANGE : WCST_FIND_SUBSTR) : WCST_NEXT_SUBSTR;
 					search = false;
 					range.clear();
@@ -3061,8 +2965,7 @@ static int _build_wildcard_steps(const strref wild, strref *segs, char *type, in
 				type[numType++] = search ? (range ? WCST_FIND_LINE_START_RANGED : WCST_FIND_LINE_START) : WCST_NEXT_LINE_START;
 				search = false;
 				range.clear();
-				last = next_pos+1;
-				pos = last;
+				pos = last = next_pos+1;
 				break;
 
 			case '^': // > = first character after line
@@ -3078,8 +2981,8 @@ static int _build_wildcard_steps(const strref wild, strref *segs, char *type, in
 					segs[numSeg++] = range;
 				type[numType++] = search ? (range ? WCST_FIND_LINE_END_RANGED : WCST_FIND_LINE_END) : WCST_NEXT_LINE_END;
 				search = false;
-				last = next_pos+1;
-				pos = last;
+				range.clear();
+				pos = last = next_pos+1;
 				break;
 
 			case '?':	// ? = any character
@@ -3087,17 +2990,17 @@ static int _build_wildcard_steps(const strref wild, strref *segs, char *type, in
 				if (!search) {
 					if (next_pos > last) {
 						segs[numSeg++] = wild.get_substr(last, next_pos-last);
+						if (search && range)
+							segs[numSeg++] = range;
 						type[numType++] = search ? (range ? WCST_FIND_SUBSTR_RANGE : WCST_FIND_SUBSTR) : WCST_NEXT_SUBSTR;
 					}
 					range.clear();
 					type[numType++] = WCST_NEXT_ANY_CHAR;
 					search = false;
-					last = next_pos+1;
-					pos = last;
-				} else {
-					pos++;
-					last = pos;
-				}
+					range.clear();
+					pos = last = next_pos+1;
+				} else
+					last = ++pos;
 				break;
 
 			case '#':	// # = any number (hard coded range)
@@ -3109,8 +3012,7 @@ static int _build_wildcard_steps(const strref wild, strref *segs, char *type, in
 				segs[numSeg++] = _numeric_range;
 				type[numType++] = search ? WCST_FIND_RANGE_CHAR : WCST_NEXT_RANGE_CHAR;
 				search = false;
-				last = next_pos+1;
-				pos = last;
+				pos = last = next_pos+1;
 				break;
 
 			case '[': {	// [..] = limited range character
@@ -3128,11 +3030,9 @@ static int _build_wildcard_steps(const strref wild, strref *segs, char *type, in
 					if (search && range)
 						segs[numSeg++] = range;
 					type[numType++] = search ? (range ? WCST_FIND_RANGE_CHAR_RANGED : WCST_FIND_RANGE_CHAR) : WCST_NEXT_RANGE_CHAR;
-					range.clear();
-
 					search = false;
-					last = close_pos+1;
-					pos = last;
+					range.clear();
+					pos = last = close_pos+1;
 				} else
 					pos = next_pos+1;
 				break;
@@ -3157,190 +3057,191 @@ strref strref::find_wildcard(const strref wild, strl_t start, bool case_sensitiv
 
 	// start going through the steps to find a match
 	int pos = start;
+	char last_valid_search_step[MAX_WILDCARD_SEARCH_STACK];
+	char last_valid_search_seg[MAX_WILDCARD_SEARCH_STACK];
+	strl_t last_valid_search_pos[MAX_WILDCARD_SEARCH_STACK];
 	while ((strl_t)pos < length) {
 		int first_pos = pos;
 		int seg = 0;
 		bool valid = true;
-		for (int step = 0; step<numType; step++) {
+		int last_valid_stack = 0;
+		int step = 0;
+		while (step<numType) {
+			bool find = false;
+			strl_t found_pos = first_pos;
+			int seg_step = seg;
 			switch (type[step]) {
-				case WCST_END:
-					// success!
+				case WCST_END:	// success!
 					return strref(string+first_pos, pos-first_pos);
+
 				case WCST_FIND_SUBSTR:
+					find = true;
 					pos = case_sensitive ? find_case_esc(segs[seg], pos) : find_esc(segs[seg], pos);
 					if (pos<0) {
 						valid = false;
 						break;
 					}
-					if (!step)
-						first_pos = pos;
+					found_pos = pos;
 					pos += segs[seg++].length;
 					break;
+
 				case WCST_FIND_SUBSTR_RANGE:
-					pos = case_sensitive ? find_case_esc_range(segs[seg], segs[seg+1], pos) : find_esc_range(segs[seg], segs[seg+1], pos);
+					find = true;
+					pos = case_sensitive ? find_case_esc_range(segs[seg], segs[seg + 1], pos) : find_esc_range(segs[seg], segs[seg + 1], pos);
 					if (pos<0) {
 						valid = false;
 						break;
 					}
-					if (!step)
-						first_pos = pos;
+					found_pos = pos;
 					pos += segs[seg].length;
 					seg += 2;
 					break;
+
 				case WCST_FIND_RANGE_CHAR:
+					find = true;
 					pos = find_any_char_or_range(segs[seg++], pos);
 					if (pos<0) {
 						valid = false;
 						break;
 					}
-					if (!step)
-						first_pos = pos;
+					found_pos = pos;
 					pos++;
 					break;
+
 				case WCST_FIND_RANGE_CHAR_RANGED:
-					pos = find_range_char_within_range(segs[seg], segs[seg+1], pos);
+					find = true;
+					pos = find_range_char_within_range(segs[seg], segs[seg + 1], pos);
 					if (pos<0) {
 						valid = false;
 						break;
 					}
-					if (!step)
-						first_pos = pos;
+					found_pos = pos;
 					pos++;
 					seg += 2;
 					break;
+
 				case WCST_NEXT_ANY_CHAR:
-					if (pos==length) {
-						valid = false;
+					valid = pos != length;
+					if (!valid)
 						break;
-					}
 					pos++;
 					break;
+
 				case WCST_NEXT_RANGE_CHAR:
-					if (pos==length || !segs[seg++].char_matches_ranges(get_at(pos))) {
-						valid = false;
+					valid = !(pos == length || !segs[seg++].char_matches_ranges(get_at(pos)));
+					if (!valid)
 						break;
-					}
 					pos++;
 					break;
+
 				case WCST_NEXT_SUBSTR:
-					if (!same_substr_case_esc(segs[seg], pos)) {
-						valid = false;
+					valid = same_substr_case_esc(segs[seg], pos);
+					if (!valid)
 						break;
-					}
 					pos += segs[seg++].length;
 					break;
+
 				case WCST_NEXT_WORD_START:
-					if (is_ws(string[pos]) || (pos && !is_ws(string[pos-1]))) {
-						valid = false;
+					valid = !(is_ws(string[pos]) || (pos && !is_ws(string[pos - 1])));
+					if (!valid)
 						break;
-					}
 					pos++;
 					break;
+
 				case WCST_NEXT_WORD_END:
-					if (strl_t(pos) < length || !is_ws(string[pos]) || (pos && is_ws(string[pos-1]))) {
-						valid = false;
-					}
-					pos++;
+					valid = (pos==length || is_ws(string[pos])) && pos && !is_ws(string[pos-1]);
 					break;
+
 				case WCST_FIND_WORD_START:
+					find = true;
 					// current position may be ok if first pos or prev=whitespace/separator
 					// skip if: current = separator or previous is not separator
-					if (is_sep_ws(string[pos]) || (pos && !is_sep_ws(string[pos-1]))) {
-						if (pos==length) {
-							valid = false;
-							break;
-						} else {
-							if (!is_sep_ws(string[pos]))
-								pos += len_non_sep_ws(pos);
-							if (is_sep_ws(string[pos]))
-								pos += len_sep_ws(pos);
-						}
-						if (!step)
-							first_pos = pos;
+					if ((strl_t(pos)<length && is_sep_ws(string[pos])) || (pos && !is_sep_ws(string[pos-1]))) {
+						if (strl_t(pos)<length && !is_sep_ws(string[pos]))
+							pos += len_non_sep_ws(pos);
+						if (strl_t(pos)<length && is_sep_ws(string[pos]))
+							pos += len_sep_ws(pos);
 					}
+					valid = strl_t(pos) < length;
+					found_pos = pos;
 					break;
+
 				case WCST_FIND_WORD_START_RANGED:
+					find = true;
 					// current position may be ok if first pos or prev=whitespace/separator
 					// skip if: current = separator or previous is not separator
 					if (is_sep_ws(string[pos]) || (pos && !is_sep_ws(string[pos-1]))) {
-						if (pos==length) {
-							valid = false;
-							break;
-						} else {
-							while (!is_sep_ws(string[pos])) {
-								if (!segs[seg].char_matches_ranges(string[pos])) {
-									valid = false;
-									break;
-								}
-								pos++;
-							}
-							while (is_sep_ws(string[pos])) {
-								if (!segs[seg].char_matches_ranges(string[pos])) {
-									valid = false;
-									break;
-								}
-								pos++;
-							}
+						while (strl_t(pos)<length && !is_sep_ws(string[pos])) {
+							valid = segs[seg].char_matches_ranges(string[pos]);
+							if (!valid)
+								break;
+							pos++;
 						}
-						if (!step)
-							first_pos = pos;
+						while (strl_t(pos)<length && is_sep_ws(string[pos])) {
+							valid = segs[seg].char_matches_ranges(string[pos]);
+							if (!valid)
+								break;
+							pos++;
+						}
 					}
+                    valid = valid && strl_t(pos) < length;
+					found_pos = pos;
 					seg++;
 					break;
+
 				case WCST_FIND_WORD_END:
+					find = true;
 					// current position may be ok if first pos or prev=whitespace/separator
 					// skip if: current = separator or previous is not separator
 					if (!is_sep_ws(string[pos]) || (pos && is_sep_ws(string[pos-1]))) {
-						if (pos==length) {
-							valid = false;
+						valid = pos != length;
+						if (!valid)
 							break;
-						} else {
+						else {
 							if (is_sep_ws(string[pos]))
 								pos += len_sep_ws(pos);
 							if (!is_sep_ws(string[pos]))
 								pos += len_non_sep_ws(pos);
 						}
-						if (!step)
-							first_pos = pos;
 					}
+					found_pos = pos;
 					break;
+
 				case WCST_FIND_WORD_END_RANGED:
+					find = true;
 					// current position may be ok if first pos or prev=whitespace/separator
 					// skip if: current = separator or previous is not separator
 					if (!is_sep_ws(string[pos]) || (pos && is_sep_ws(string[pos-1]))) {
-						if (pos==length) {
-							valid = false;
+						valid = pos != length;
+						if (!valid)
 							break;
-						} else {
+						else {
 							while (strl_t(pos)<length && is_sep_ws(string[pos])) {
-								if (!segs[seg].char_matches_ranges(string[pos])) {
-									valid = false;
+								valid = segs[seg].char_matches_ranges(string[pos]);
+								if (!valid)
 									break;
-								}
 								pos++;
 							}
 							while (strl_t(pos)<length && !is_sep_ws(string[pos])) {
-								if (!segs[seg].char_matches_ranges(string[pos])) {
-									valid = false;
+								valid = segs[seg].char_matches_ranges(string[pos]);
+								if (!valid)
 									break;
-								}
 								pos++;
 							}
 						}
-						if (!step)
-							first_pos = pos;
 					}
+					found_pos = pos;
 					seg++;
 					break;
 
 				case WCST_NEXT_LINE_START:
-					if (pos && string[pos-1]!=0xa && string[pos-1]!=0x0d) {
-						valid = false;
+					valid = !(pos && string[pos - 1] != 0xa && string[pos - 1] != 0x0d);
+					if (!valid)
 						break;
-					}
 					break;
 
 				case WCST_FIND_LINE_START:
+					find = true;
 					// current position may be ok if first pos or prev=line sep
 					// skip if: current = separator or previous is not separator
 					if (pos && string[pos-1]!=0xa && string[pos-1]!=0x0d) {
@@ -3356,12 +3257,12 @@ strref strref::find_wildcard(const strref wild, strl_t start, bool case_sensitiv
 							valid = false;
 							break;
 						}
-						if (!step)
-							first_pos = pos;
 					}
+					found_pos = pos;
 					break;
 
 				case WCST_FIND_LINE_START_RANGED:
+					find = true;
 					// current position may be ok if first pos or prev=line sep
 					// skip if: current = separator or previous is not separator
 					if (pos && string[pos-1]!=0xa && string[pos-1]!=0x0d) {
@@ -3382,9 +3283,8 @@ strref strref::find_wildcard(const strref wild, strl_t start, bool case_sensitiv
 							valid = false;
 							break;
 						}
-						if (!step)
-							first_pos = pos;
 					}
+					found_pos = pos;
 					seg++;
 					break;
 
@@ -3396,12 +3296,15 @@ strref strref::find_wildcard(const strref wild, strl_t start, bool case_sensitiv
 					break;
 
 				case WCST_FIND_LINE_END:
+					find = true;
 					// current position may be ok if first pos or prev=whitespace/separator
 					// skip if: current = separator or previous is not separator
 					while (strl_t(pos)<length && string[pos]!=0x0a && string[pos]!=0x0d)
 						pos++;
+					found_pos = true;
 					break;
 				case WCST_FIND_LINE_END_RANGED:
+					find = true;
 					// current position may be ok if first pos or prev=whitespace/separator
 					// skip if: current = separator or previous is not separator
 					// note: end of string is also a valid end of line so make a custom step
@@ -3412,13 +3315,36 @@ strref strref::find_wildcard(const strref wild, strl_t start, bool case_sensitiv
 						}
 						pos++;
 					}
+					found_pos = pos;
 					seg++;
 					break;
 			}
+
 			// if current step is not valid go to the next character and try again
 			if (!valid) {
-				pos = first_pos+1;
-				break;
+				if (last_valid_stack) {
+					last_valid_stack--;	// step back one level and try again
+					step = last_valid_search_step[last_valid_stack];
+					seg = last_valid_search_seg[last_valid_stack];
+					pos = last_valid_search_pos[last_valid_stack] + 1;
+					valid = true;
+				}
+				else {
+					pos = first_pos + 1;
+					break;
+				}
+			} else {
+				if (find) {
+					if (!step)
+						first_pos = found_pos;
+					if (last_valid_stack < MAX_WILDCARD_SEARCH_STACK) {
+						last_valid_search_pos[last_valid_stack] = found_pos;
+						last_valid_search_seg[last_valid_stack] = seg_step;
+						last_valid_search_step[last_valid_stack] = step;
+						last_valid_stack++;
+					}
+				}
+				step++;
 			}
 		}
 	}
@@ -3542,23 +3468,23 @@ int strref::find_quoted(char d) const
 
 // return the current line of text and move this string ahead to the next.
 // note: supports all known line feed configurations.
-strref strref::line()
+strref strref::next_line()
 {
-	if (!valid())
-		return strref();
-
 	const char *start = string;
 	const char *scan = start;
-	strl_t left = length;
+	strl_t left = length; // if not valid left=0 and no characters will be interpreted
 	strref ret;
-	while (left && !ret.valid()) {
-		while (*scan!=0x0a && *scan!=0x0d && left) {
-			scan++;
-			left--;
-		}
-		ret = strref(start, strl_t(scan-start));
-		while ((*scan==0x0a || *scan==0x0d) && left) {
-			scan++;
+	while (left && *scan!=0x0a && *scan!=0x0d) {
+		scan++;
+		left--;
+	}
+	// this is the line to return
+	ret = strref(start, strl_t(scan-start));
+	if (left) {
+		char c = *scan++;
+		left--;
+		if (left && ((c==0x0a && *scan==0x0d) || (c==0x0d && *scan==0x0a))) {
+		scan++;
 			left--;
 		}
 	}
@@ -3681,7 +3607,7 @@ strl_t _strmod_insert(char *string, strl_t length, strl_t cap, const strref sub,
 }
 
 // determine the size of this string with evaluated escape codes
-strl_t _string_size_esc(const char *string, strl_t length)
+static strl_t int_string_size_esc(const char *string, strl_t length)
 {
 	strl_t size = 0;
 	while (length) {
@@ -3706,7 +3632,7 @@ strl_t _strmod_insert_esc(char *string, strl_t length, strl_t cap, const strref 
 	if (sub.get_len()==0)
 		return 0;
 
-	strl_t ins = _string_size_esc(sub.get(), sub.get_len());
+	strl_t ins = int_string_size_esc(sub.get(), sub.get_len());
 	strl_t end = length;
 	strl_t last = ins+end;
 	if (last>cap) {
@@ -4199,7 +4125,15 @@ strl_t _strmod_utf8_toupper(char *string, strl_t length, strl_t cap) {
 #endif // STRUSE_IMPLEMENTATION
 
 /* revision history
-	0.99	(2015-09-14)	first public version
+	0.990	(2015-09-14)	first public version
+    1.000   (2015-09-15)    added XML parser sample
+    1.001   (2015-09-16)    cleaned up XML parser
+    1.002   (2015-09-17)    added JSON parser sample
+	1.003	(2015-09-20)	straightening up of things
+                            - wildcard add rewind & retry for multi step search, this caused valid finds to be ignored if invalid sub find occured
+                            - fixed some minor wildcard search bugs, including word end including an extra character (whitespace)
+                            - slightly more compact implementation, combining common code segments into static functions
+                            - next_line() will return empty lines to match actual line count, line() works as before (returns only nonempty lines)
 */
 
 #endif // __STRUSE_H__

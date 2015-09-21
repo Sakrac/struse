@@ -40,15 +40,16 @@ bool ParseJSON(strref json, JSONDataCB callback, void *user_data)
 				break;
 			case '}': // just handle minor mistakes
 			case ']': // close object or array
-				if (stack[sp].array_index >= 0) {	// this was an array
+				if (sp<JSON_STACK_SIZE && stack[sp].array_index >= 0) {	// this was an array
 					sp++;
 					callback(stack + sp, JSON_STACK_SIZE - sp, strref(), JSON_CB_ARRAY_CLOSE, user_data);
+				} else {	// this was an object
+					if (sp<(JSON_STACK_SIZE-1)) {
+						sp++;
+						callback(stack + sp, JSON_STACK_SIZE - sp, strref(), JSON_CB_OBJECT_CLOSE, user_data);
+					}
 				}
-				else {	// this was an object
-					sp++;
-					callback(stack + sp, JSON_STACK_SIZE - sp, strref(), JSON_CB_OBJECT_CLOSE, user_data);
-				}
-				if (stack[sp].array_index >= 0)
+				if (sp<JSON_STACK_SIZE && stack[sp].array_index >= 0)
 					stack[sp].array_index++;
 				assign = false;
 				++json;
