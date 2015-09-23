@@ -6,7 +6,7 @@ Add this #define to *one* C++ file before #include "struse.h" to create the impl
 
  #define STRUSE_IMPLEMENTATION
 
-[Samples](../../tree/master/samples) contains basic, precompile hash and xml parsing samples using struse classes in a variety of ways.
+[Samples](../../tree/master/samples) contains basic, precompile hash, xml parsing and diff/patch samples using struse classes in a variety of ways.
 
 struse is a collection of string parsing and string modification classes that are intended to work together to simplify parsing blocks of text, building blocks of text.
 

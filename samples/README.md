@@ -6,6 +6,7 @@ These examples are intended to be read by humans and if desired copied directly 
 * [Prehash](#prehash)
 * [XML](#xml)
 * [JSON](#json)
+* [Diff](#diff)
 
 ### <a name="basic"></a>Basic sample
 
@@ -170,4 +171,14 @@ JSON Callback types:
 See [json.org](http://www.json.org/) for format details.
 
 
+### <a name="diff"></a>Diff / Patch text file sample
 
+Files in project:
+
+* samples/diff.cpp
+* struse.h
+
+Diff is a naive implementation of a text file compare and patch. It will export a file that looks like a visual diff between two files which can be used to re-create the updated file from the original and the patch output.
+
+The implementation is simplistic and not a replacement for a true diff, it is a fun little sample using a number of features from struse.h.
+ 

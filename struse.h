@@ -565,7 +565,7 @@ public:
 	explicit operator strref() { return strref(charstr(), len()); }
 
 	// mirror base template class
-	strl_t cap() { return B::cap(); }
+	strl_t cap() const { return B::cap(); }
 	char* charstr() { return B::charstr(); }
 	const char* charstr() const { return B::charstr(); }
 	strl_t len() const { return B::len(); }
@@ -4134,6 +4134,7 @@ strl_t _strmod_utf8_toupper(char *string, strl_t length, strl_t cap) {
                             - fixed some minor wildcard search bugs, including word end including an extra character (whitespace)
                             - slightly more compact implementation, combining common code segments into static functions
                             - next_line() will return empty lines to match actual line count, line() works as before (returns only nonempty lines)
+	1.004	(2015-09-22)	added text file diff / patch sample
 */
 
 #endif // __STRUSE_H__
