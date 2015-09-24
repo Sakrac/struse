@@ -1,4 +1,4 @@
-//
+﻿//
 //  diff.cpp
 //  struse / samples
 //
@@ -182,12 +182,16 @@ int FilterDuplicates(int numChanges, LineMatches *matchBA)
 				memmove(&matchBA[k], &matchBA[k+1], sizeof(LineMatches) * (numChanges-k-1));
 				numChanges--;
 			} else {
-				if (k1 < first && ke>first) {
+				if (k1 <= first && ke > first) {
 					matchBA[k].matches = first - k1;
 				} else if (k1>=first && k1<last) {
 					int remove = last-k1;
 					matchBA[k].lineB += remove;
+					matchBA[k].lineA += remove;
 					matchBA[k].matches -= remove;
+				}
+				if (matchBA[k].lineB == 61) {
+					printf("yep!\n");
 				}
 				k++;
 			}
@@ -416,7 +420,7 @@ int main(int argc, char **argv) {
 	// help?
 	if (argc<=1) {
 		puts("Usage:\n"
-			 "%s [-d] [-p] original_file update_file/patch_file output_file\n"
+			 "diff [-d] [-p] original_file update_file/patch_file output_file\n"
 			 "-d: diff, output_file is a patch.\n"
 			 "-p: patch, apply a patch to a file to generate an update.\n"
 			 "if output file omitted, print output to stdout.\n");
