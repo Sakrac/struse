@@ -11,6 +11,7 @@
 #include "struse.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 typedef struct {
 	unsigned int hash;
@@ -248,6 +249,7 @@ strovl CompareLines(strref textA, strref textB)
 
 	// step 5: merge sequential added lines
 	numChanges = MergeAddedSequentialLines(numChanges, matchBA);
+	assert(numChanges <= (int)numLinesB);
 
 	// step 6: estimate file size of output data
 	size_t approx_size = 10;	// include room for original hash
