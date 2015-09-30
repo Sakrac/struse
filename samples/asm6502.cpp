@@ -64,6 +64,8 @@ enum StatusCode {
 	ERROR_LABEL_MISPLACED_INTERNAL,
 	ERROR_BAD_ADDRESSING_MODE,
 	ERROR_UNEXPECTED_CHARACTER_IN_ADDRESSING_MODE,
+	ERROR_UNEXPECTED_LABEL_ASSIGMENT_FORMAT,
+	ERROR_MODIFYING_CONST_LABEL,
 	
 	ERROR_STOP_PROCESSING_ON_HIGHER,	// errors greater than this will stop execution
 	
@@ -91,6 +93,8 @@ const char *aStatusStrings[] = {
 	"Internal label organization mishap",
 	"Bad addressing mode",
 	"Unexpected character in addressing mode",
+	"Unexpected label assignment format",
+	"Changing value of label that is constant",
 	"Errors after this point will stop execution",
 	"Target address must evaluate immediately for this operation",
 	"Scoping is too deep",
@@ -204,6 +208,7 @@ unsigned char CC10Mask[] = { 0xaa, 0xaa, 0xaa, 0xaa, 0x2a, 0xae, 0xaa, 0xaa };
 static const strref c_comment("//");
 static const strref word_char_range("!0-9a-zA-Z_@$!");
 static const strref label_char_range("!0-9a-zA-Z_@$!.");
+static const strref keyword_equ("equ");
 
 // pairArray is basically two vectors sharing a size without using constructors
 template <class H, class V> class pairArray {
@@ -286,6 +291,7 @@ public:
 	bool evaluated;			// a value may not yet be evaluated
 	bool zero_page;			// addresses known to be zero page
 	bool pc_relative;		// this is an inline label describing a point in the code
+	bool constant;			// the value of this label can not change
 } Label;
 
 // When an expression is evaluated late, determine how to encode the result
@@ -324,19 +330,24 @@ typedef struct {
 	strref read_source; // current position/length in source file
 } SourceContext;
 
-class ContextStack : private std::vector<SourceContext> {
+class ContextStack {
+private:
+	std::vector<SourceContext> stack;
+	SourceContext *currContext;
 public:
-	SourceContext& curr() { return (*this)[size()-1]; }
+	ContextStack() : currContext(nullptr) { stack.reserve(32); }
+	SourceContext& curr() { return *currContext; }
 	void push(strref src_name, strref src_file, strref code_seg) {
 		SourceContext context;
 		context.source_name = src_name;
 		context.source_file = src_file;
 		context.code_segment = code_seg;
 		context.read_source = code_seg;
-		push_back(context);
+		stack.push_back(context);
+		currContext = &stack[stack.size()-1];
 	}
-	void pop() { pop_back();  }
-	bool has_work() { return !empty(); }
+	void pop() { stack.pop_back(); currContext = stack.size() ? &stack[stack.size()-1] : nullptr; }
+	bool has_work() { return currContext!=nullptr; }
 };
 
 // Assembler directives such as org / pc / load / etc.
@@ -351,6 +362,9 @@ enum AssemblerDirective {
 	AD_TEXT,
 	AD_INCLUDE,
 	AD_INCBIN,
+	AD_CONST,
+	AD_LABEL,
+	AD_INCSYM,
 };
 
 // The state of the assembly
@@ -360,7 +374,8 @@ public:
 	pairArray<unsigned int, Macro> macros;
 	std::vector<LateEval> lateEval;
 	std::vector<strref> localLabels; // remove these labels when a global pc label is added
-	std::vector<char*> loadedData;	// free when 
+	std::vector<char*> loadedData;	// free when
+	strovl symbols;
 	
 	// context for macros / include files
 	ContextStack contextStack;
@@ -374,6 +389,7 @@ public:
 	int scope_address[MAX_SCOPE_DEPTH];
 	int scope_depth;
 	bool set_load_address;
+	bool symbol_export;
 
 	// Convert source to binary
 	void Assemble(strref source, strref filename);
@@ -395,6 +411,11 @@ public:
 	// Access labels
 	Label* GetLabel(strref label);
 	Label* AddLabel(unsigned int hash);
+	StatusCode AssignLabel(strref label, strref line, bool make_constant = false);
+	StatusCode AddressLabel(strref label);
+	void LabelAdded(Label *pLabel);
+	void IncSym(strref line);
+
 
 	// Late expression evaluation
 	void AddLateEval(int pc, int scope_pc, unsigned char *target,
@@ -416,7 +437,8 @@ public:
 
 	// constructor
 	Asm() : address(0x1000), load_address(0x1000), scope_depth(0), set_load_address(false),
-		output(nullptr), curr(nullptr), output_capacity(0) { localLabels.reserve(256); }
+		output(nullptr), curr(nullptr), output_capacity(0), symbol_export(false)
+		{ localLabels.reserve(256); }
 };
 
 // Binary search over an array of unsigned integers, may contain multiple instances of same key
@@ -450,7 +472,7 @@ char* LoadText(strref filename, size_t &size) {
 		fseek(f, 0, SEEK_END);
 		size_t _size = ftell(f);
 		fseek(f, 0, SEEK_SET);
-		if (char *buf = (char*)malloc(_size)) {
+		if (char *buf = (char*)calloc(_size, 1)) {
 			fread(buf, 1, _size, f);
 			fclose(f);
 			size = _size;
@@ -483,8 +505,14 @@ char* LoadBinary(strref filename, size_t &size) {
 
 // Clean up work allocations
 void Asm::Cleanup() {
-	for (std::vector<char*>::iterator i=loadedData.begin(); i!=loadedData.end(); ++i)
-		free(*i);
+	for (std::vector<char*>::iterator i = loadedData.begin(); i!=loadedData.end(); ++i) {
+		char *data = *i;
+		free(data);
+	}
+	if (symbols.get()) {
+		free(symbols.charstr());
+		symbols.set_overlay(nullptr,0);
+	}
 	loadedData.clear();
 	labels.clear();
 	macros.clear();
@@ -658,6 +686,7 @@ StatusCode Asm::CheckLateEval(strref added_label, int scope_end)
 							if (num_new_labels<MAX_LABELS_EVAL_ALL)
 								new_labels[num_new_labels++] = label->label_name;
 							evaluated_label = true;
+							LabelAdded(label);
 							break;
 						}
 						default:
@@ -685,6 +714,31 @@ Label *Asm::GetLabel(strref label)
 		index++;
 	}
 	return nullptr;
+}
+
+static const strref str_label("label");
+static const strref str_const("const");
+
+// If exporting labels, append this label to the list
+void Asm::LabelAdded(Label *pLabel)
+{
+	if (pLabel && pLabel->evaluated && symbol_export) {
+		int space = 1 + str_label.get_len() + 1 + pLabel->label_name.get_len() + 1 + 9 + 2;
+		if ((symbols.get_len()+space) > symbols.cap()) {
+			strl_t new_size = ((symbols.get_len()+space)+8*1024);
+			char *new_charstr = (char*)malloc(new_size);
+			if (symbols.charstr()) {
+				memcpy(new_charstr, symbols.charstr(), symbols.get_len());
+				free(symbols.charstr());
+			}
+			symbols.set_overlay(new_charstr, new_size, symbols.get_len());
+		}
+		symbols.append('.');
+		symbols.append(pLabel->constant ? str_const : str_label);
+		symbols.append(' ');
+		symbols.append(pLabel->label_name);
+		symbols.sprintf_append("=$%04x\n", pLabel->value);
+	}
 }
 
 // These are expression tokens in order of precedence (last is highest precedence)
@@ -754,8 +808,11 @@ StatusCode Asm::EvalExpression(strref expression, int pc, int scope_pc, int scop
 					expression += 2; op = EVOP_SHR;	} break;
 			case '<': if (expression.get_len()>=2 && expression[1]=='<') {
 					expression += 2; op = EVOP_SHL; } break;
-			case '%': if (scope_end_pc<0) return STATUS_NOT_READY;
-					  ++expression; op = EVOP_VAL; value = scope_end_pc; break;
+			case '%': // % means both binary and scope closure, disambiguate!
+				if (expression[1]=='0' || expression[1]=='1') {
+					++expression; value = expression.abinarytoui_skip(); op = EVOP_VAL; break; }
+				if (scope_end_pc<0) return STATUS_NOT_READY;
+				++expression; op = EVOP_VAL; value = scope_end_pc; break;
 			case '|': ++expression; op = EVOP_OR; break;
 			case '&': ++expression; op = EVOP_AND; break;
 			case '(': ++expression; op = EVOP_LPR; break;
@@ -907,6 +964,9 @@ DirectiveName aDirectiveNames[] {
 	{ "TEXT", AD_TEXT },
 	{ "INCLUDE", AD_INCLUDE },
 	{ "INCBIN", AD_INCBIN },
+	{ "CONST", AD_CONST },
+	{ "LABEL", AD_LABEL },
+	{ "INCSYM", AD_INCSYM },
 };
 
 static const int nDirectiveNames = sizeof(aDirectiveNames) / sizeof(aDirectiveNames[0]);
@@ -1030,7 +1090,7 @@ StatusCode Asm::ApplyDirective(AssemblerDirective dir, strref line, strref sourc
 	switch (dir) {
 		case AD_ORG: {		// org / pc: current address of code
 			int addr;
-			if (line[0]=='=' || line.get_word().same_str("equ"))
+			if (line[0]=='=' || keyword_equ.is_prefix_word(line))	// optional '=' or equ
 				line.next_word_ws();
 			if ((error = EvalExpression(line, address, scope_address[scope_depth], -1, addr))) {
 				error = error == STATUS_NOT_READY ? ERROR_TARGET_ADDRESS_MUST_EVALUATE_IMMEDIATELY : error;
@@ -1046,7 +1106,7 @@ StatusCode Asm::ApplyDirective(AssemblerDirective dir, strref line, strref sourc
 		}
 		case AD_LOAD: {		// load: address for target to load code at
 			int addr;
-			if (line[0]=='=' || line.get_word().same_str("equ"))
+			if (line[0]=='=' || keyword_equ.is_prefix_word(line))
 				line.next_word_ws();
 			if ((error = EvalExpression(line, address, scope_address[scope_depth], -1, addr))) {
 				error = error == STATUS_NOT_READY ? ERROR_TARGET_ADDRESS_MUST_EVALUATE_IMMEDIATELY : error;
@@ -1081,10 +1141,10 @@ StatusCode Asm::ApplyDirective(AssemblerDirective dir, strref line, strref sourc
 			line.trim_whitespace();
 			if (line && EvalExpression(line, address, scope_address[scope_depth], -1, value) == STATUS_OK)
 				printf("EVAL(%d): " STRREF_FMT ": \"" STRREF_FMT "\" = $%x\n",
-					contextStack.curr().source_file.count_lines(description), STRREF_ARG(description), STRREF_ARG(line), value);
+					contextStack.curr().source_file.count_lines(description)+1, STRREF_ARG(description), STRREF_ARG(line), value);
 			else
 				printf("EVAL(%d): \"" STRREF_FMT ": " STRREF_FMT"\"\n",
-				contextStack.curr().source_file.count_lines(description), STRREF_ARG(description), STRREF_ARG(line));
+				contextStack.curr().source_file.count_lines(description)+1, STRREF_ARG(description), STRREF_ARG(line));
 			break;
 		}
 		case AD_BYTES:		// bytes: add bytes by comma separated values/expressions
@@ -1114,19 +1174,39 @@ StatusCode Asm::ApplyDirective(AssemblerDirective dir, strref line, strref sourc
 				address+=2;
 			}
 			break;
-		case AD_TEXT:		// text: add text within quotes
+		case AD_TEXT: {		// text: add text within quotes
 			// for now just copy the windows ascii. TODO: Convert to petscii.
-			line.trim_whitespace();
-			if (line[0]=='"') {
-				++line;
-				if (line.get_last()=='"')
-					line.clip(1);
-			}
+			// https://en.wikipedia.org/wiki/PETSCII
+			// ascii: no change
+			// shifted: a-z => $41.. A-Z => $61..
+			// unshifted: a-z, A-Z => $41
+			strref text_prefix = line.before('"').get_trimmed_ws();
+			line = line.between('"', '"');
 			CheckOutputCapacity(line.get_len());
-			memcpy(curr, line.get(), line.get_len());
-			curr += line.get_len();
-			address += line.get_len();
+			{
+				if (!text_prefix || text_prefix.same_str("ascii")) {
+					memcpy(curr, line.get(), line.get_len());
+					curr += line.get_len();
+					address += line.get_len();
+				} else if (text_prefix.same_str("petscii")) {
+					while (line) {
+						char c = line[0];
+						*curr++ = (c>='a' && c<='z') ? (c-'a'+'A') : (c>0x60 ? ' ' : line[0]);
+						address++;
+						++line;
+					}
+				} else if (text_prefix.same_str("petscii_shifted")) {
+					while (line) {
+						char c = line[0];
+						*curr++ = (c>='a' && c<='z') ? (c-'a'+0x61) :
+							((c>='A' && c<='Z') ? (c-'A'+0x61) : (c>0x60 ? ' ' : line[0]));
+						address++;
+						++line;
+					}
+				}
+			}
 			break;
+		}
 		case AD_MACRO: {	// macro: create an assembler macro
 			strref from_here = contextStack.curr().code_segment + 
 				strl_t(line.get()-contextStack.curr().code_segment.get());
@@ -1145,7 +1225,7 @@ StatusCode Asm::ApplyDirective(AssemblerDirective dir, strref line, strref sourc
 			size_t size = 0;
 			if (char *buffer = LoadText(line, size)) {
 				loadedData.push_back(buffer);
-				strref src(buffer, size);
+				strref src(buffer, strl_t(size));
 				contextStack.push(line, src, src);
 			}
 			break;
@@ -1163,6 +1243,22 @@ StatusCode Asm::ApplyDirective(AssemblerDirective dir, strref line, strref sourc
 			}
 			break;
 		}
+		case AD_LABEL:
+		case AD_CONST: {
+			line.trim_whitespace();
+			strref label = line.split_range_trim(word_char_range, line[0]=='.' ? 1 : 0);
+			if (line[0]=='=' || keyword_equ.is_prefix_word(line)) {
+				line.next_word_ws();
+				AssignLabel(label, line, dir==AD_CONST);
+			} else
+				error = ERROR_UNEXPECTED_LABEL_ASSIGMENT_FORMAT;
+			break;
+		}
+		case AD_INCSYM: {
+			IncSym(line);
+			break;
+		}
+
 	}
 	return error;
 }
@@ -1378,6 +1474,93 @@ StatusCode Asm::BuildMacro(Macro &m, strref arg_list)
 	return STATUS_OK;
 }
 
+void Asm::IncSym(strref line)
+{
+	// include symbols listed or all if no listing
+	strref symlist = line.before('"').get_trimmed_ws();
+	line = line.between('"', '"');
+	size_t size;
+	if (char *buffer = LoadText(line, size)) {
+		strref symfile(buffer, strl_t(size));
+		while (strref symdef = symfile.line()) {
+			strref symtype = symdef.split_token(' ');
+			strref label = symdef.split_token_trim('=');
+			// first word is either .label or .const
+			bool constant = symtype.same_str(".const");
+			if (symlist) {
+				strref symchk = symlist;
+				while (strref symwant = symchk.split_token_trim(',')) {
+					if (symwant.same_str_case(label)) {
+						AssignLabel(label, symdef, constant);
+						break;
+					}
+				}
+			} else
+				AssignLabel(label, symdef, constant);
+		}
+		loadedData.push_back(buffer);
+	}
+}
+
+// assignment of label (<label> = <expression>)
+StatusCode Asm::AssignLabel(strref label, strref line, bool make_constant)
+{
+	line.trim_whitespace();
+	int val = 0;
+	StatusCode status = EvalExpression(line, address, scope_address[scope_depth], -1, val);
+	if (status != STATUS_NOT_READY && status != STATUS_OK)
+		return status;
+
+	Label *pLabel = GetLabel(label);
+	if (pLabel) {
+		if (pLabel->constant && pLabel->evaluated && val != pLabel->value)
+			return (status == STATUS_NOT_READY) ? STATUS_OK : ERROR_MODIFYING_CONST_LABEL;
+	} else
+		pLabel = AddLabel(label.fnv1a());
+
+	pLabel->label_name = label;
+	pLabel->expression = line;
+	pLabel->evaluated = status==STATUS_OK;
+	pLabel->value = val;
+	pLabel->zero_page = pLabel->evaluated && val<0x100;
+	pLabel->pc_relative = false;
+	pLabel->constant = make_constant;
+
+	if (!pLabel->evaluated)
+		AddLateEval(label, address, scope_address[scope_depth], line, LET_LABEL);
+	else {
+		LabelAdded(pLabel);
+		return CheckLateEval(label);
+	}
+	return STATUS_OK;
+}
+
+StatusCode Asm::AddressLabel(strref label)
+{
+	Label *pLabel = GetLabel(label);
+	bool constLabel = false;
+	if (!pLabel)
+		pLabel = AddLabel(label.fnv1a());
+	else if (pLabel->constant && pLabel->value != address)
+		return ERROR_MODIFYING_CONST_LABEL;
+	else
+		constLabel = pLabel->constant;
+
+	pLabel->label_name = label;
+	pLabel->expression.clear();
+	pLabel->value = address;
+	pLabel->evaluated = true;
+	pLabel->pc_relative = true;
+	pLabel->constant = constLabel;
+	pLabel->zero_page = false;
+	LabelAdded(pLabel);
+	if (label[0]=='.' || label[0]=='@' || label[0]=='!' || label.get_last()=='$')
+		MarkLabelLocal(label);
+	else
+		FlushLocalLabels();
+	return CheckLateEval(label);
+}
+
 // Build a segment of code (file or macro)
 StatusCode Asm::BuildSegment(OP_ID *pInstr, int numInstructions)
 {
@@ -1396,10 +1579,6 @@ StatusCode Asm::BuildSegment(OP_ID *pInstr, int numInstructions)
 			strref label = operation;
 			if (operation[0]=='.') {
 				++operation;
-				if (operation.same_str("label") || operation.same_str("const")) {	// skip '.label' directive
-					operation = line.split_range_trim(word_char_range, line[0]=='.' ? 1 : 0);
-					label = operation;
-				}
 			}
 			if (!operation) {
 				// scope open / close
@@ -1439,28 +1618,8 @@ StatusCode Asm::BuildSegment(OP_ID *pInstr, int numInstructions)
 						line.clear();
 					}
 				} else if (line.get_first()=='=') {
-					// assignment of label
 					++line;
-					line.trim_whitespace();
-					int val = 0;
-					StatusCode status = EvalExpression(line, address, scope_address[scope_depth], -1, val);
-					if (status != STATUS_NOT_READY && status != STATUS_OK) {
-						error = status;
-						break;
-					}
-					
-					Label *pLabel = AddLabel(label.fnv1a());
-					pLabel->label_name = label;
-					pLabel->expression = line;
-					pLabel->evaluated = status==STATUS_OK;
-					pLabel->value = val;
-					pLabel->zero_page = pLabel->evaluated && val<0x100;
-					pLabel->pc_relative = false;
-					
-					if (!pLabel->evaluated)
-						AddLateEval(label, address, scope_address[scope_depth], line, LET_LABEL);
-					else
-						error = CheckLateEval(label);
+					error = AssignLabel(label, line);
 					line.clear();
 				} else {
 					unsigned int nameHash = label.fnv1a();
@@ -1468,37 +1627,27 @@ StatusCode Asm::BuildSegment(OP_ID *pInstr, int numInstructions)
 					bool gotMacro = false;
 					while (macro < macros.count() && nameHash==macros.getKey(macro)) {
 						if (macros.getValue(macro).name.same_str_case(label)) {
-							BuildMacro(macros.getValue(macro), line);
+							error = BuildMacro(macros.getValue(macro), line);
 							gotMacro = true;
-							line.clear();
+							line.clear();	// don't process codes from here
 							break;
 						}
 						macro++;
 					}
 					if (!gotMacro) {
-						Label *pLabel = AddLabel(label.fnv1a());
-						pLabel->label_name = label;
-						pLabel->expression.clear();
-						pLabel->value = address;
-						pLabel->evaluated = true;
-						pLabel->pc_relative = true;
-						pLabel->zero_page = false;
+						error = AddressLabel(label);
 						if (line[0]==':')
 							++line;
-						if (label[0]=='.' || label[0]=='@' || label[0]=='!' || label.get_last()=='$')
-							MarkLabelLocal(label);
-						else
-							FlushLocalLabels();
-						error = CheckLateEval(label);
+						// there may be codes after the label
 					}
 				}
 			}
 			if (error > STATUS_NOT_READY) {
 				strown<512> errorText;
-				errorText.sprintf("Error (%d): ", contextStack.curr().source_file.count_lines(line_start));
+				errorText.sprintf("Error (%d): ", contextStack.curr().source_file.count_lines(line_start)+1);
 				errorText.append(aStatusStrings[error]);
-				errorText.append(": \"");
-				errorText.append(line_start.line());
+				errorText.append(" \"");
+				errorText.append(line_start.get_trimmed_ws());
 				errorText.append("\"\n");
 				errorText.c_str();
 				fwrite(errorText.get(), errorText.get_len(), 1, stderr);
@@ -1518,7 +1667,7 @@ StatusCode Asm::BuildSegment(OP_ID *pInstr, int numInstructions)
 void Asm::Assemble(strref source, strref filename)
 {
 	OP_ID *pInstr = new OP_ID[100];
-	int numInstructions = BuildInstructionTable(pInstr, strref(aInstr, sizeof(aInstr)-1), 100);
+	int numInstructions = BuildInstructionTable(pInstr, strref(aInstr, strl_t(sizeof(aInstr)-1)), 100);
 
 	StatusCode error = STATUS_OK;
 	contextStack.push(filename, source, source);
@@ -1540,11 +1689,11 @@ void Asm::Assemble(strref source, strref filename)
 			strown<512> errorText;
 			int line = i->source_file.count_lines(i->expression);
 			errorText.sprintf("Error (%d): ", line+1);
-			errorText.append("Failed to evaluate \"");
+			errorText.append("Failed to evaluate label \"");
 			errorText.append(i->expression);
 			if (line>=0) {
 				errorText.append("\" : \"");
-				errorText.append(i->source_file.get_line(line));
+				errorText.append(i->source_file.get_line(line).get_trimmed_ws());
 			}
 			errorText.append("\"\n");
 			fwrite(errorText.get(), errorText.get_len(), 1, stderr);
@@ -1562,12 +1711,15 @@ int main(int argc, char **argv)
 {
 	bool c64 = true;
 	const char* source_filename=nullptr, *binary_out_name=nullptr;
+	const char* sym_file=nullptr;
 	for (int a=1; a<argc; a++) {
 		strref arg(argv[a]);
 		if (arg.same_str("-c64"))
 			c64 = true;
 		else if (arg.same_str("-bin"))
 			c64 = false;
+		else if (arg.same_str("-sym") && (a+1)<argc)
+			sym_file = argv[++a];
 		else if (!source_filename)
 			source_filename = arg.get();
 		else if (!binary_out_name)
@@ -1575,7 +1727,8 @@ int main(int argc, char **argv)
 	}
 
 	if (!source_filename) {
-		puts("Usage:\nAsm6502 <-c64 / -bin> filename.s code.prg\n * -c64: Include load address\n * -bin: Raw binary\n");
+		puts("Usage:\nAsm6502 <-c64 / -bin> filename.s code.prg <-sym code.sym> \n"
+			 "* -c64: Include load address\n * -bin: Raw binary\n * -sym: vice/kick asm symbol file\n");
 		return 0;
 	}
 	
@@ -1584,15 +1737,22 @@ int main(int argc, char **argv)
 		size_t size = 0;
 		if (char *buffer = LoadText(source_filename, size)) {
 			Asm assembler;
-			assembler.Assemble(strref(buffer, size), strref(argv[1]));
+			assembler.symbol_export = sym_file!=nullptr;
+			assembler.Assemble(strref(buffer, strl_t(size)), strref(argv[1]));
 			
 			if (binary_out_name && assembler.curr > assembler.output) {
-				if (FILE *f = fopen(binary_out_name, "wb")) {	// /Users/Carl-Henrik/Google Drive/code/c64/
+				if (FILE *f = fopen(binary_out_name, "wb")) {
 					if (c64) {
 						char addr[2] = { (char)assembler.load_address, (char)(assembler.load_address>>8) };
 						fwrite(addr, 2, 1, f);
 					}
 					fwrite(assembler.output, assembler.curr-assembler.output, 1, f);
+					fclose(f);
+				}
+			}
+			if (sym_file && assembler.symbols.get_len()) {
+				if (FILE *f = fopen(sym_file, "w")) {
+					fwrite(assembler.symbols.get(), assembler.symbols.get_len(), 1, f);
 					fclose(f);
 				}
 			}

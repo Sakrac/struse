@@ -118,6 +118,7 @@ public:
 	// convert hexadecimal string to unsigned integer
 	unsigned int ahextoui() const;
 	unsigned int ahextoui_skip();
+	unsigned int abinarytoui_skip();
 
 	// output string with newline (printf)
 	void writeln();
@@ -407,6 +408,9 @@ public:
 
 	// remove white space from start and end
 	void trim_whitespace() { clip_trailing_whitespace(); skip_whitespace(); }
+
+	strref get_trimmed_ws() const { strref ret = *this;
+		ret.clip_trailing_whitespace(); ret.skip_whitespace(); return ret; }
 
 	// find next whitespace or entire string
 	int find_whitespace_or_full() const {
@@ -920,6 +924,8 @@ public:
 	const char* charstr() const { return string_ptr; }
 	void invalidate() { string_ptr = nullptr; string_space = 0; }
 	void set_overlay(char *ptr, strl_t space) { string_ptr = ptr; string_space = space; }
+	void set_overlay(char *ptr, strl_t space, strl_t len) {
+		string_ptr = ptr; string_space = space; string_length = len; }
 };
 
 // owned string class, instance with 'strown<capacity> name'
@@ -1500,6 +1506,26 @@ unsigned int strref::ahextoui_skip()
 	return hex;
 }
 
+// convert a binary string to an unsigned integer
+unsigned int strref::abinarytoui_skip()
+{
+	skip_whitespace();
+	const char *scan = string;
+	strl_t left = length;
+	if (!left)
+		return 0;
+	strl_t bin = 0;
+	while (left) {
+		unsigned char c = (unsigned char)*scan++;
+		if (c<'0' || c>'1')
+			break;
+		left--;
+		bin = (bin<<1) | (c-'0');
+	}
+	length -= strl_t(scan-string);
+	string = scan;
+	return bin;
+}
 // convert a hexadecimal string to a signed integer
 int strref::ahextoi() const
 {
