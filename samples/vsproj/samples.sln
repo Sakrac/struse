@@ -17,8 +17,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "json_strref", "json_strref.
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "diff", "diff.vcxproj", "{CA693BEB-CC31-4CF3-BD42-696DA2E47F77}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "asm6502", "asm6502.vcxproj", "{F1C42906-9BA2-4B10-8956-002D4843076B}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Mixed Platforms = Debug|Mixed Platforms
@@ -86,17 +84,6 @@ Global
 		{CA693BEB-CC31-4CF3-BD42-696DA2E47F77}.Release|Win32.ActiveCfg = Release|Win32
 		{CA693BEB-CC31-4CF3-BD42-696DA2E47F77}.Release|Win32.Build.0 = Release|Win32
 		{CA693BEB-CC31-4CF3-BD42-696DA2E47F77}.Release|x64.ActiveCfg = Release|Win32
-		{F1C42906-9BA2-4B10-8956-002D4843076B}.Debug|Mixed Platforms.ActiveCfg = Debug|Win32
-		{F1C42906-9BA2-4B10-8956-002D4843076B}.Debug|Mixed Platforms.Build.0 = Debug|Win32
-		{F1C42906-9BA2-4B10-8956-002D4843076B}.Debug|Win32.ActiveCfg = Debug|Win32
-		{F1C42906-9BA2-4B10-8956-002D4843076B}.Debug|Win32.Build.0 = Debug|Win32
-		{F1C42906-9BA2-4B10-8956-002D4843076B}.Debug|x64.ActiveCfg = Debug|x64
-		{F1C42906-9BA2-4B10-8956-002D4843076B}.Debug|x64.Build.0 = Debug|x64
-		{F1C42906-9BA2-4B10-8956-002D4843076B}.Release|Mixed Platforms.ActiveCfg = Release|Win32
-		{F1C42906-9BA2-4B10-8956-002D4843076B}.Release|Mixed Platforms.Build.0 = Release|Win32
-		{F1C42906-9BA2-4B10-8956-002D4843076B}.Release|Win32.ActiveCfg = Release|Win32
-		{F1C42906-9BA2-4B10-8956-002D4843076B}.Release|Win32.Build.0 = Release|Win32
-		{F1C42906-9BA2-4B10-8956-002D4843076B}.Release|x64.ActiveCfg = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
