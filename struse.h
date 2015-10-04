@@ -458,8 +458,6 @@ public:
 
 	strref get_word() const { return get_clipped(len_word()); }
 	
-	strref get_line(strl_t line) const;
-
 	// get the next block of characters separated by whitespace
 	strref get_word_ws() const {
 		strl_t w = len_whitespace(), g = len_grayspace(w); return get_substr(w, g - w); }
@@ -537,6 +535,8 @@ public:
 	// grab a block of text starting with (, [ or { and end with the corresponding number of ), ] or }
 	strref scoped_block_skip();
 
+	strref get_line() const; // return the current line even if empty,t don't change this line
+	strref get_line(strl_t line) const; // return line by index
 	strref next_line(); // return the current line even if empty and skip this to line after
 	strref line() { strref ret; while (valid() && !ret.valid()) ret = next_line(); return ret;}	// return the current or next valid line skip this to line after
 	strref next_token(char c) { int o = find(c); if (o<0) o = get_len(); return split(o); }
@@ -1431,10 +1431,11 @@ int strref::atoi_skip()
 	}
 	int value = 0;
 	while (left) {
-		char c = *scan++;
+		char c = *scan;
 		if (c<'0' || c>'9')
 			break;
 		left--;
+		scan++;
 		value = c-'0' + value*10;
 	}
 	string += length-left;
@@ -1490,8 +1491,7 @@ unsigned int strref::ahextoui_skip()
 	}
 	strl_t hex = 0;
 	while (left) {
-		char c = *scan++;
-		left--;
+		char c = *scan;
 		if (c>='0' && c<='9')
 			hex = (hex<<4) | (c-'0');
 		else if (c>='a' && c<='f')
@@ -1500,6 +1500,8 @@ unsigned int strref::ahextoui_skip()
 			hex = (hex<<4) | (c-'A'+10);
 		else
 			break;
+		scan++;
+		left--;
 	}
 	length -= strl_t(scan-string);
 	string = scan;
@@ -1516,9 +1518,10 @@ unsigned int strref::abinarytoui_skip()
 		return 0;
 	strl_t bin = 0;
 	while (left) {
-		unsigned char c = (unsigned char)*scan++;
+		unsigned char c = (unsigned char)*scan;
 		if (c<'0' || c>'1')
 			break;
+		scan++;
 		left--;
 		bin = (bin<<1) | (c-'0');
 	}
@@ -2677,7 +2680,7 @@ int strref::find_last(const strref str) const
 	char c = int_tolower_ascii7(*--compare);
 
 	int left = length;
-	while (left>=0) {
+	while (left>0) {
 		left--;
 		if (int_tolower_ascii7(*--scan)==c) {
 			const char *scan_chk = scan;
@@ -3738,6 +3741,21 @@ strref strref::next_line()
 	return ret;
 }
 
+// get line from current string
+strref strref::get_line() const
+{
+	const char *start = string;
+	const char *scan = start;
+	strl_t left = length; // if not valid left=0 and no characters will be interpreted
+	strref ret;
+	while (left && *scan!=0x0a && *scan!=0x0d) {
+		scan++;
+		left--;
+	}
+	// this is the line to return
+	return strref(start, strl_t(scan-start));
+}
+
 // get a specific line number (0 indexed)
 strref strref::get_line(strl_t line_num) const {
 	strref scan(*this);
@@ -4388,6 +4406,7 @@ strl_t _strmod_utf8_toupper(char *string, strl_t length, strl_t cap) {
                             - next_line() will return empty lines to match actual line count, line() works as before (returns only nonempty lines)
 	1.004	(2015-09-22)	added text file diff / patch sample
 	1.005	(2015-09-28)	added 6502 macro assembler sample
+	1.006	(2015-10-04)	added get_line() to get first line, fixed errors with getting hex/binary value+skip (ahextoui_skip, abinarytoui_skip)
 */
 
 #endif // __STRUSE_H__
