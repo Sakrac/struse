@@ -527,9 +527,11 @@ public:
 		if (t>=0) { r = strref(string, t); *this += t; } return r; }
 	strref split_token_trim(char c) { strref r = split_token(c); skip_whitespace(); r.trim_whitespace(); return r; }
 	strref split_token_any_trim(const strref chars) { strref r; int t = find_any_char_of(chars);
-		if (t>=0) { r = strref(string, t); *this += t; r.trim_whitespace(); } trim_whitespace();  return r; }
+		if (t>=0) { r = strref(string, t); *this += t; r.trim_whitespace(); } trim_whitespace(); return r; }
+	strref split_range(const strref range, strl_t pos=0) { int t = find_any_char_or_range(range, pos);
+		if (t<0) t = length; strref r = strref(string, t); *this += t; return r; }
 	strref split_range_trim(const strref range, strl_t pos=0) { int t = find_any_char_or_range(range, pos);
-		if (t<0) t = length; strref r = strref(string, t); *this += t; r.trim_whitespace(); trim_whitespace();  return r; }
+		if (t<0) t = length; strref r = strref(string, t); *this += t; r.trim_whitespace(); trim_whitespace(); return r; }
 	strref split_label() { skip_whitespace(); strref r(string, len_label()); *this += r.length; skip_whitespace(); return r; }
 
 	// grab a block of text starting with (, [ or { and end with the corresponding number of ), ] or }
@@ -1327,11 +1329,13 @@ strref::strref(const char *str)
 // get fnv1a hash of a string
 unsigned int strref::fnv1a(unsigned int seed) const
 {
-	unsigned const char *scan = (unsigned const char*)string;
 	unsigned int hash = seed;
-	strl_t left = length;
-	while (left--)
-		hash = (*scan++ ^ hash) * 16777619;
+	if (string) {
+		unsigned const char *scan = (unsigned const char*)string;
+		strl_t left = length;
+		while (left--)
+			hash = (*scan++ ^ hash) * 16777619;
+	}
 	return hash;
 }
 
@@ -1702,6 +1706,8 @@ static bool int_compare_substr_case(const char *scan, strl_t length, const char 
 {
 	if (length < chk_len)
 		return false;
+	if (scan==nullptr || check==nullptr)
+		return scan==check;
 	for (strl_t cl = 0; cl<chk_len; cl++) {
 		if (*scan++ != *check++)
 			return false;
@@ -1837,6 +1843,8 @@ bool strref::same_str(const strref str) const
 
 	const char *scan = string;
 	const char *compare = str.string;
+	if (scan==nullptr || compare==nullptr)
+		return scan==compare;
 	strl_t compare_left = length;
 	while (compare_left) {
 		if (int_tolower_ascii7(*scan++)!=int_tolower_ascii7(*compare++))
