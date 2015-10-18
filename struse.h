@@ -815,6 +815,10 @@ public:
 	// append a character at the end of this string
 	void append(char c) { if (!full()) { charstr()[len()] = c; inc_len_int(); } }
 
+	// append a character repeatedly
+	void append_to(char c, strl_t pos) { if (len() >= pos) set_len_int(pos); else {
+		strl_t ol = len(); set_len(pos); for (strl_t p = ol; p < len(); ++p) charstr()[p] = c; } }
+
 	// prepend this string with a substring
 	void prepend(const strref o) { insert(o, 0); }
 
