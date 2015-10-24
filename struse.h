@@ -211,8 +211,11 @@ public:
 	// characters start of next line (may be end of string)
 	int len_next_line() const;
 
-	// count characters that can be convert to a floating point number
+	// count characters that can be converted to a floating point number
 	strl_t len_float_number() const;
+
+	// count characters that can be converted to a hexadecimal number
+	strl_t len_hex() const { for (strl_t i = 0; i < length; i++) { if (!is_hex(string[i])) return i; } return length; }
 
 	// check if string is a valid floating point number
 	bool is_float_number() const { return valid() && len_float_number() == length; }
@@ -1667,12 +1670,14 @@ int strref::find_or_full_esc(char c, strl_t pos) const
 // find last position of character c
 int strref::find_last(char c) const
 {
-	strl_t left = length;
-	const char *scan = string+left;
-	while (left) {
-		if (*--scan==c)
-			return left-1;
-		left--;
+	if (length && string) {
+		strl_t left = length;
+		const char *scan = string + left;
+		while (left) {
+			if (*--scan == c)
+				return left - 1;
+			left--;
+		}
 	}
 	return -1;
 }
@@ -1681,12 +1686,13 @@ int strref::find_last(char c) const
 int strref::find(char c, char d) const
 {
 	strl_t left = length;
-	const char *scan = string;
-	while (left) {
-		char n = *scan++;
-		if (n==c || n==d)
-			return length-left;
-		left--;
+	if (const char *scan = string) {
+		while (left) {
+			char n = *scan++;
+			if (n == c || n == d)
+				return length - left;
+			left--;
+		}
 	}
 	return -1;
 }
