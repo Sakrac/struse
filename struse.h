@@ -305,6 +305,7 @@ public:
 
 	// return position in this string of the first occurrence of the argument or negative if not found, not case sensitive
 	int find(const strref str) const;
+	int find_bookend(const strref str, const strref bookend) const;
 
 	// return position in this string of the first occurrence of the argument or negative if not found, not case sensitive
 	int find(const char *str) const;
@@ -320,6 +321,7 @@ public:
 
 	// return position in this string of the last occurrence of the argument or negative if not found, not case sensitive
 	int find_last(const strref str) const;
+	int find_last_bookend(const strref str, const strref bookend) const;
 
 	// return position in this string of the last occurrence of the argument or negative if not found, not case sensitive
 	int find_last(const char *str) const;
@@ -345,6 +347,7 @@ public:
 
 	// counts
 	int substr_count(const strref str) const; // count the occurrences of the argument in this string
+	int substr_count_bookend(const strref str, const strref bookend) const;
 	int substr_case_count(const strref str) const; // count the occurrences of the argument in this string
 	int substr_label_case_count(const strref str) const;
 	int count_repeat(char c, strl_t pos) const;
@@ -455,11 +458,13 @@ public:
 	// get this strref without leading whitespace
 	strref get_skip_ws() const { return get_skipped(len_whitespace()); }
 
-	strref get_clipped(int len) const {
-		return strref(len>0?string:nullptr,
+	strref get_clipped(int len) const { return strref(len>0?string:nullptr,
 		len>0?(strl_t(len)<length?len:length):0); }
 
 	strref get_word() const { return get_clipped(len_word()); }
+
+	// get a range of characters matching the range
+	strref get_range_word(const strref range, strl_t pos = 0) const;
 	
 	// get the next block of characters separated by whitespace
 	strref get_word_ws() const {
@@ -872,7 +877,11 @@ public:
 	strref replace(const strref a, const strref b) {
 		set_len(_strmod_inplace_replace_int(charstr(), len(), cap(), a, b)); return get_strref(); }
 
-    // replace a string found within this string with another string
+	// replace strings bookended by a specific string
+	strref replace_bookend(const strref a, const strref b, const strref bookend) {
+		set_len(_strmod_inplace_replace_bookend_int(charstr(), len(), cap(), a, b, bookend)); return get_strref(); }
+
+	// replace a string found within this string with another string
     void exchange(strl_t pos, strl_t size, const strref insert) {
         set_len_int(_strmod_exchange(charstr(), len(), cap(), pos, size, insert)); }
     
@@ -1700,13 +1709,15 @@ int strref::find(char c, char d) const
 // find last instance of either character c or d
 int strref::find_last(char c, char d) const
 {
-	strl_t left = length-1;
-	const char *scan = string+left;
-	while (left) {
-		char n = *--scan;
-		if (n==c || n==d)
-			return left-1;
-		left--;
+	if (length && string) {
+		strl_t left = length - 1;
+		const char *scan = string + left;
+		while (left) {
+			char n = *--scan;
+			if (n == c || n == d)
+				return left - 1;
+			left--;
+		}
 	}
 	return -1;
 }
@@ -2238,6 +2249,33 @@ int strref::find(const strref str) const
 	return -1;
 }
 
+// find a substring within a string case ignored
+int strref::find_bookend(const strref str, const strref bookend) const
+{
+	if (!str.valid() || !valid() || length<str.length)
+		return -1;
+
+	const char *scan = string;
+	strl_t left = length;
+
+	const char *compare = str.string;
+	strl_t find_len = str.length;
+
+	char p = 0;
+	char c = int_tolower_ascii7(*compare++);
+
+	while (left >= find_len) {
+		char d = int_tolower_ascii7(*scan++);
+		if (d == c && (left == length || bookend.char_matches_ranges(p)) &&
+			(left == find_len || bookend.char_matches_ranges(int_tolower_ascii7(scan[find_len-1])))) {
+			if (int_compare_substr(scan, left - 1, compare, find_len - 1))
+				return length - left;
+		}
+		p = d;
+		left--;
+	}
+	return -1;
+}
 // find a substring within a string case ignored starting at pos
 int strref::find(const strref str, strl_t pos) const
 {
@@ -2718,6 +2756,41 @@ int strref::find_last(const strref str) const
 }
 
 // find last matching substring within a string case ignored
+int strref::find_last_bookend(const strref str, const strref bookend) const
+{
+	if (!str.valid() || !valid() || length<str.length)
+		return -1;
+
+	const char *scan = string + length;
+	const char *compare = str.string + str.length;
+
+	char c = int_tolower_ascii7(*--compare);
+	char p = 0;
+	int left = length;
+	while (left>0) {
+		left--;
+		char d = int_tolower_ascii7(*--scan);
+		if (d == c && (left==length || bookend.char_matches_ranges(p))) {
+			const char *scan_chk = scan;
+			const char *cmp_chk = compare;
+			strl_t left_check = str.length;
+			while (--left_check) {
+				if (int_tolower_ascii7(*--scan_chk) != int_tolower_ascii7(*--cmp_chk)) {
+					left_check = 1;
+					break;
+				}
+			}
+			if (!left_check) {
+				if (string == scan_chk || bookend.char_matches_ranges(int_tolower_ascii7(*--cmp_chk)))
+					return left - str.length + 1;
+			}
+		}
+		p = d;
+	}
+	return -1;
+}
+
+// find last matching substring within a string case ignored
 int strref::find_last(const char *str) const
 {
 	if (!str || !*str || !valid())
@@ -2800,6 +2873,45 @@ int strref::substr_count(const strref str) const
 			if (sr==0) {
 				scan = scan_chk;
 				left -= substrlen-1;
+				count++;
+			}
+		}
+	}
+	return count;
+}
+
+// count number of matching substrings in string
+int strref::substr_count_bookend(const strref str, const strref bookend) const
+{
+	if (!str.valid() || !valid() || length<str.length)
+		return 0;
+
+	int count = 0;
+	const char *scan = string;
+	strl_t left = length;
+	strl_t substrlen = str.length;
+	char c = int_tolower_ascii7(str.get_first());
+	char p = 0;
+
+	while (left >= substrlen) {
+
+		while (left) {
+			char d = int_tolower_ascii7(*scan++);
+			if (d == c && bookend.char_matches_ranges(p))
+				break;
+			p = d;
+			left--;
+		}
+		if (left && left >= substrlen) {
+			// first character matches and enough characters remain for a potential match
+			const char *compare = str.string + 1;
+			strl_t sr = substrlen - 1;
+			const char *scan_chk = scan;
+			while (sr && int_tolower_ascii7(*compare++) == int_tolower_ascii7(*scan_chk++))
+				sr--;
+			if (sr == 0 && (scan_chk == (string + length) || bookend.char_matches_ranges(int_tolower_ascii7(*scan_chk++)))) {
+				scan = scan_chk;
+				left -= substrlen - 1;
 				count++;
 			}
 		}
@@ -2976,6 +3088,18 @@ int strref::find_any_char_or_range(const strref range, strl_t pos) const {
 	strref rng = int_check_exclude(range, include);
 
 	return int_find_range(string+pos, length-pos, length, rng, include);
+}
+
+// find a word made out of characters in the given range
+strref strref::get_range_word(const strref range, strl_t pos) const
+{
+	if (pos >= length)
+		return strref();
+
+	bool include;
+	strref rng = int_check_exclude(range, include);
+
+	return get_substr(0, int_find_range(string + pos, length - pos, length, rng, !include));
 }
 
 int strref::find_any_not_in_range(const strref range, strl_t pos) const {
@@ -4123,6 +4247,67 @@ strl_t _strmod_inplace_replace_int(char *string, strl_t length, strl_t cap, cons
 				*--pd = *--be;
 			se = ss;
 			ss = strref(scan, se).find_last(a);
+		}
+		return nl;
+	}
+	return left;
+}
+
+// search and replace occurences of a string within a string
+strl_t _strmod_inplace_replace_bookend_int(char *string, strl_t length, strl_t cap, const strref a, const strref b, const strref bookend)
+{
+	char *scan = string;
+	strl_t left = length;
+	strl_t c = cap;
+	strl_t len_a = a.get_len(), len_b = b.get_len();
+	if (len_a>left || !len_a)
+		return left;
+
+	char *ps = scan, *pd = scan;
+	if (len_a >= len_b) {
+		int ss = strref(ps, left - strl_t(ps - scan)).find_bookend(a, bookend);
+		if (ss >= 0) {
+			pd += ss;
+			ps += ss;
+			while (ss >= 0 && strl_t(ss)<left) {
+				ps += len_a;
+				int sl = strref(ps, left - ss - len_a).find(a);
+				if (sl<0)
+					sl = left - ss - len_a;
+				if (len_b) {
+					const char *po = b.get();
+					int r = len_b;
+					while (r--)
+						*pd++ = *po++;
+				}
+				if (ps != pd && sl) {
+					int r = sl;
+					while (r--)
+						*pd++ = *ps++;
+				}
+				ss += len_a + sl;
+			}
+			return strl_t(pd - scan);
+		}
+	} else if (int cnt = strref(scan, left).substr_count_bookend(a, bookend)) {
+		strl_t nl = cnt * (len_b - len_a) + left;	// new length
+		if (nl>c)
+			return left;	// didn't fit in space
+		int ss = strref(scan, left).find_last_bookend(a, bookend);
+		int se = left;
+		pd += nl;
+		ps += left;
+		while (ss >= 0) {
+			int cp = se - ss - len_a;
+			while (cp--)
+				*--pd = *--ps;
+			ps -= len_a;
+			const char *be = b.get() + len_b;
+			cp = len_b;
+			while (cp--)
+				*--pd = *--be;
+			se = ss;
+			ss = strref(scan, se).find_last_bookend(a, bookend);
 		}
 		return nl;
 	}
