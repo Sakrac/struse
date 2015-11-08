@@ -8,7 +8,7 @@ Add this #define to *one* C++ file before #include "struse.h" to create the impl
 
 [Samples](../../tree/master/samples) contains basic, precompile hash, xml parsing and diff/patch samples using struse classes in a variety of ways.
 
-[Asm6502](https://github.com/sakrac/Asm6502) Is a 6502 assembler built around struse.h.
+[x65](https://github.com/sakrac/x65) Is a 6502 assembler built around struse.h.
 
 struse is a collection of string parsing and string modification classes that are intended to work together to simplify parsing blocks of text, building blocks of text.
 
