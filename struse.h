@@ -535,7 +535,7 @@ public:
 		if (t>=0) { r = strref(string, t); *this += t; } return r; }
 	strref split_token_trim(char c) { strref r = split_token(c); skip_whitespace(); r.trim_whitespace(); return r; }
 	strref split_token_any_trim(const strref chars) { int t = find_any_char_of(chars);
-		if (t<0) t = length; strref r = strref(string, t); *this += t+1; return r; }
+		if (t<0) t = length; strref r = strref(string, t); *this += t+1; r.trim_whitespace(); return r; }
 	strref split_range(const strref range, strl_t pos=0) { int t = find_any_char_or_range(range, pos);
 		if (t<0) t = length; strref r = strref(string, t); *this += t; return r; }
 	strref split_range_trim(const strref range, strl_t pos=0) { int t = find_any_char_or_range(range, pos);
