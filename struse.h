@@ -878,7 +878,7 @@ public:
 		set_len(_strmod_inplace_replace_int(charstr(), len(), cap(), a, b)); return get_strref(); }
 
 	// replace strings bookended by a specific string
-	strref replace_bookend(const strref a, const strref b, const strref bookend) {
+	strref replace_bookend(const strref a, const strref b, const strref bookend) { if (len() && get() && a && bookend)
 		set_len(_strmod_inplace_replace_bookend_int(charstr(), len(), cap(), a, b, bookend)); return get_strref(); }
 
 	// replace a string found within this string with another string
@@ -4274,7 +4274,7 @@ strl_t _strmod_inplace_replace_bookend_int(char *string, strl_t length, strl_t c
 				int sl = strref(ps, left - ss - len_a).find(a);
 				if (sl<0)
 					sl = left - ss - len_a;
-				if (len_b) {
+				if (len_b && b.get()) {
 					const char *po = b.get();
 					int r = len_b;
 					while (r--)
@@ -4302,10 +4302,12 @@ strl_t _strmod_inplace_replace_bookend_int(char *string, strl_t length, strl_t c
 			while (cp--)
 				*--pd = *--ps;
 			ps -= len_a;
-			const char *be = b.get() + len_b;
-			cp = len_b;
-			while (cp--)
-				*--pd = *--be;
+			if (b.get()) {
+				const char *be = b.get() + len_b;
+				cp = len_b;
+				while (cp--)
+					*--pd = *--be;
+			}
 			se = ss;
 			ss = strref(scan, se).find_last_bookend(a, bookend);
 		}
