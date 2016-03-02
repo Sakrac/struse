@@ -229,3 +229,81 @@ Other ways to add text to a strown/strovl include:
 * **sprintf**(format, ...): use sprintf formatting with zero terminated c style strings and other data types.
 
 format and sprint have appending versions, format can also insert and sprint can overwrite.
+
+STRREF FUNCTIONS
+
+(table is not complete yet)
+
+return|name|description
+======|====|===========
+|()|empty constructor
+|(const char*)|zero terminated string constructor
+|(const char*, strl_t)|provided length string constructor
+|(const char*, int)|provided length string constructor
+bool|valid()|null and length check
+void|clear()|invalidate string
+const char*|get()|get string pointer
+strl_t|get_len()|get string length
+char|get_first()|get first character in string
+char|get_last()|get last character in string
+strl_t|limit_pos(strl_t)|get lesser of argument and string length
+bool|is_substr(const char*)|true if argument is a substring of string
+strl_t|substr_offs(strref)|offset, nonzero if argument is part of string
+strl_t|substr_end_offs(strref)|as above but last offset instead of first
+bool|is_empty|true if length is zero
+unsigned int|fnv1a([opt. seed])|fnv1a hash from string
+unsigned int|fnv1a_lower([opt. seed])|fnv1a hash from lowercase string
+unsigned int|fnv1a_upper([opt. seed])|fnv1a hash from uppercase string
+unsigned int|fnv1a_ws([opt. seed])|fnv1a ignore whitespace (ws repl. with single space)
+int|atoi()|convert ascii to integer
+float|atof()|convert ascii to floating point
+double|atod()|convert ascii to double precision
+int|atoi_skip()|convert ascii to int and skip string forward
+int|ahextoi()|convert ascii hexadecimal to int
+unsigned int|ahextoui()|convert unsigned ascii hex to unsigned int
+unsigned int|ahextoui_skip()|convert unsigned ascii hex to uint and skip string forward
+unsigned int|abinarytoui_skip()|convert unsigned ascci binary to uint and skip str fwd
+void|writeln()|printf string with a return
+bool|is_ws(unsigned char)|static, true if char is a whitespace
+bool|is_number(unsigned char)|static, true if char is a number
+bool|is_hex(unsigned char)|static, true if char is a hexadecimal number
+bool|is_alphabetic(unsigned char)|static, true if char is a-z or A-Z
+bool|is_alphanumeric(unsigned char)|static, true if char is 0-9, a-z or A-Z
+bool|is_valid_label(unsigned char)|static, true if alphanumeric or underscore
+bool|is_sep_ws(unsigned char)|static, true if not \' or alphanumeric
+bool|is_control(unsigned char)|static, true if not whitespace or alphanumeric or underscore
+char|tolower(char c)|static, returns english lowercase
+char|toupper(char c)|static, returns english uppercase
+char|tolower_win(char c)|static, returns windows lowercase
+char|toupper_win(char c)|static, returns windows uppercase
+char|tolower_amiga(char c)|static, returns amiga lowercase
+char|toupper_amiga(char c)|static, returns amiga uppercase
+char|tolower_macos(char c)|static, returns mac os lowercase
+char|toupper_macos(char c)|static, returns mac os uppercase
+int|tolower_unicode(char c)|static, returns reasonable unicode lowercase
+int|toupper_unicode(char c)|static, returns reasonable unicode uppercase
+void|+=|skip forward by argument
+strref|+|returns a strref skipped forward by right side value
+|bool()|true if valid
+|++|step string forward one character
+bool|>|check if this is a higher value string than right side string
+bool|<|check if this is a lower value string than right side string
+char|[]|get character of string at given position
+void|skip(strl_t)|move this string forward by argument
+void|clip(strl_t)|clip argument number of characters off end of this string
+bool|valid_ascii7|true if string is likely an ascii string (otherwise possibly unicode)
+unsigned int|get_utf8()|get first utf-8 character in string
+unsigned int|pop_utf8()|get first utf-8 character in string and step forward to next utf-8
+char|get_at(strl_t)|return character at position of argument if less than length
+unsigned char|get_u_at(strl_t)|same as above but return unsigned
+bool|whitespace_at(strl_t)|true if position of argument is a whitespace character
+int|count_char(char)|return number of times a character occurs in string
+int|len_eol|count characters to end of line
+int|len_next_line()|characters start of next line (may be end of string)
+strl_t|len_float_number()|count characters that can be converted to a floating point number
+strl_t|len_hex()|count characters that can be converted to a hexadecimal number
+bool|is_float_number()|check if string is a valid floating point number
+strref|find_wildcard(strref, [strl_t], [bool])|find wildcard starting at optional offset [case {in}sensitive]
+strref|next_wildcard(strref, strref, [bool])|find next wildcard match after given match
+strref|wildcard_after(strref, strref, [bool])|find next wildcard after given match
+bool|char_matches_ranges(unsigned char)|character filter by string, as in a wildcard [] operator
