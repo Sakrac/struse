@@ -236,10 +236,10 @@ STRREF FUNCTIONS
 
 return|name|description
 ------|----|-----------
-|()|empty constructor
-|(const char*)|zero terminated string constructor
-|(const char*, strl_t)|provided length string constructor
-|(const char*, int)|provided length string constructor
+ |()|empty constructor
+ |(const char*)|zero terminated string constructor
+ |(const char*, strl_t)|provided length string constructor
+ |(const char*, int)|provided length string constructor
 bool|valid()|null and length check
 void|clear()|invalidate string
 const char*|get()|get string pointer
@@ -284,8 +284,8 @@ int|tolower_unicode(char c)|static, returns reasonable unicode lowercase
 int|toupper_unicode(char c)|static, returns reasonable unicode uppercase
 void|+=|skip forward by argument
 strref|+|returns a strref skipped forward by right side value
-|bool()|true if valid
-|++|step string forward one character
+ |bool()|true if valid
+ |++|step string forward one character
 bool|>|check if this is a higher value string than right side string
 bool|<|check if this is a lower value string than right side string
 char|[]|get character of string at given position
@@ -307,3 +307,42 @@ strref|find_wildcard(strref, [strl_t], [bool])|find wildcard starting at optiona
 strref|next_wildcard(strref, strref, [bool])|find next wildcard match after given match
 strref|wildcard_after(strref, strref, [bool])|find next wildcard after given match
 bool|char_matches_ranges(unsigned char)|character filter by string, as in a wildcard [] operator
+bool|same_str(strref)|true if strings match (case ignore)
+bool|same_str_case(strref)|true if strings match (case sensitive)
+bool|same_str(const char *)|true if strings match (case ignore)
+bool|same_str_case(const char *)|true if strings match (case sensitive)
+bool|same_str(strref, char, char)|true if strings match and treat two characters as the same (case ignore)
+bool|same_str_case(strref, char, char)|true if strings match and treat two characters as the same (case sensitive)
+bool|same_substr(strref, strl_t)|true if provided string is a substring at given position (case ignore)
+bool|same_substr_esc(strref, strl_t)|as above and allow escape codes in search string
+bool|same_substr_case(strref, strl_t)|same as sam_substr but case sensitive
+bool|same_substr_case_esc(strref, strl_t)|as two above
+unsigned int|prefix_len(strref)|count characters matching from start of string (case ignore)
+unsigned int|prefix_len_case(strref)|count characters matching from start of string (case sensitve)
+unsigned int|prefix_len(const char *)|count characters matching from start of string (case ignore)
+unsigned int|prefix_len_case(const char *)|count characters matching from start of string (case sensitve)
+unsigned int|prefix_len(strref, char, char)|count characters matching from start of string and treat two characters as the same (case ignore)
+bool|has_prefix(strref)|true if full argument is a prefix of string
+bool|has_prefix(const char*)|true if full argument is a prefix of string
+bool|is_prefix_of(strref)|true if full string is a prefix of argument
+bool|is_prefix_of(strref, char, char)|true if full string is a prefix of argument treat two characters as if the same
+bool|is_prefix_word(strref)|true if full string is a prefix of argument and next character is not alphanumeric 
+bool|is_prefix_case_of(strref)|true if string is prefix of argument (case sensitive)
+bool|is_prefix_float_number()|true if string starts with a valid floating point value
+strl_t|suffix_len(strref)|returns length of matching characters from end in string and argument (case ignore)
+strl_t|suffix_len_case(strref)|returns length of matching characters from end in string and argument (case sensitive)
+bool|is_suffix_of(strref)|true if full string is a suffix of argument (case ignore)
+bool|is_suffix_case_of(strref)|true if full string is a suffix of argument (case sensitive)
+bool|has_suffix(const char *)|true if full string is a suffix of argument (case ignore)
+int|find(char)|find first index of character, if not found return -1
+int|find_at(char, strl_t)|find first index of character at or after position, if not found return -11
+int|find_after(char, strl_t)|find first index of character after position, if not found return -11
+int|find_or_full(char, strl_t)|find first index of character after index pos or return length for full string
+int|find_or_full_esc(char, strl_t)|find first index of character after index pos or return length for full string, allowing escape codes
+int|find_last(char)|return last position of character or -1 if not found
+int|find(char, char)|return first position of either char c or char d or -1 if not found
+int|find_last(char, char)|return last position of either character or -1 if not found
+int|find_after_last(char a, char b)|return first 'b' after last 'a' in string
+int|find_after_last(char a1, char a2, char b)|as above but after last 'a1' or 'a2' in string
+int|find(strref)|return position in this string of the first occurrence of the argument or -1 if not found (case ignore)
+int|find_bookend(strref, strref)|return position in this string og the first occurence of the argument but only if bookended by range or -1 if not found
