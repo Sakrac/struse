@@ -235,7 +235,7 @@ STRREF FUNCTIONS
 (table is not complete yet)
 
 return|name|description
-======|====|===========
+------|----|-----------
 |()|empty constructor
 |(const char*)|zero terminated string constructor
 |(const char*, strl_t)|provided length string constructor
