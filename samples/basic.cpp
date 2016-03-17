@@ -223,6 +223,11 @@ bool wildcard_samples()
 	if (!substr.same_str_case("willoutnumber"))
 		return false;
 
+	// find r folloed by numbers without another substring to find
+	substr = strref("no k12 r13 [99]").find_wildcard("r*{0-9}");
+	if (!substr.same_str_case("r13"))
+		return false;
+
 	// search wildcard iteratively
 	search = "radio, gorilla, zebra, monkey, human, rat, car, ocelot, conrad, butler";
 	substr.clear();
