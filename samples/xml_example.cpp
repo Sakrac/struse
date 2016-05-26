@@ -88,13 +88,13 @@ bool XMLExample_Callback(void *user, strref element, const strref *stack, int de
 				for (strref attr = XMLFirstAttribute(element); attr; attr = XMLNextAttribute(attr)) {
 					switch (XMLAttributeName(attr).fnv1a()) {
 						case SPRITE_COLOR_RED:
-							pSprites->sprites[curr].red = XMLAttributeValue(attr).atoi();
+							pSprites->sprites[curr].red = (unsigned char)XMLAttributeValue(attr).atoi();
 							break;
 						case SPRITE_COLOR_GREEN:
-							pSprites->sprites[curr].green = XMLAttributeValue(attr).atoi();
+							pSprites->sprites[curr].green = (unsigned char)XMLAttributeValue(attr).atoi();
 							break;
 						case SPRITE_COLOR_BLUE:
-							pSprites->sprites[curr].blue = XMLAttributeValue(attr).atoi();
+							pSprites->sprites[curr].blue = (unsigned char)XMLAttributeValue(attr).atoi();
 							break;
 					}
 				}
@@ -110,10 +110,10 @@ bool XMLExample_Callback(void *user, strref element, const strref *stack, int de
 				for (strref attr = XMLFirstAttribute(element); attr; attr = XMLNextAttribute(attr)) {
 					switch (XMLAttributeName(attr).fnv1a()) {
 					case SPRITE_SIZE_WIDTH:
-						pSprites->sprites[curr].width = XMLAttributeValue(attr).atoi();
+						pSprites->sprites[curr].width = (int)XMLAttributeValue(attr).atoi();
 						break;
 					case SPRITE_SIZE_HEIGHT:
-						pSprites->sprites[curr].height = XMLAttributeValue(attr).atoi();
+						pSprites->sprites[curr].height = (int)XMLAttributeValue(attr).atoi();
 						break;
 					}
 				}

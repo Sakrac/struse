@@ -139,15 +139,15 @@ bool strref_samples()
 	if (pos < 0 || text[pos] != ',')
 		return false;
 
-	pos = text.find_after('i', pos);
+	pos = text.find_after('i', (strl_t)pos);
 	if (pos < 0 || (text[pos] != 'i' && pos <= text.find('i')))
 		return false;
 
-	pos = text.find_or_full(';', 10);
-	if (pos != text.get_len())
+	pos = (int)text.find_or_full(';', 10);
+	if ((strl_t)pos != text.get_len())
 		return false;
 
-	pos = text.find_or_full('.', 10);
+	pos = (int)text.find_or_full('.', 10);
 	if (pos <= 0 || text[pos] != '.')
 		return false;
 
@@ -333,6 +333,8 @@ bool strown_samples() {
 }
 
 int main(int argc, char **argv) {
+	(void)argc;
+	(void)argv;
     if (!strref_samples())
         printf("strref sample failed\n");
 	if (!wildcard_samples())

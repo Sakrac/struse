@@ -297,7 +297,7 @@ size_t PatchFileSize(strref *aLines, int orig_lines, strref patch, bool &error)
 		strref line = patch.next_line();
 		if (line.get_first()=='+') {
 			++line;
-			int num_lines = line.atoi();
+			int64_t num_lines = line.atoi();
 			for (int l = 0; l<num_lines; l++)
 				size += patch.next_line().get_len() + 2;
 		} else if (line.get_first()=='<') {
@@ -308,7 +308,7 @@ size_t PatchFileSize(strref *aLines, int orig_lines, strref patch, bool &error)
 				break;
 			}
 			++line;
-			int num_lines = line.atoi();
+			int64_t num_lines = line.atoi();
 			if ((first+num_lines) > orig_lines) {
 				error = true;
 				break;
@@ -326,7 +326,7 @@ size_t PatchFileSize(strref *aLines, int orig_lines, strref patch, bool &error)
 strovl PatchFile(strref orig, strref patch)
 {
 	// check that the hash matches
-	unsigned int hash = patch.next_line().ahextoui();
+	uint64_t hash = patch.next_line().ahextoui();
 	if (hash != CustomFileHash(orig))
 		return strovl();
 
@@ -353,7 +353,7 @@ strovl PatchFile(strref orig, strref patch)
 			strref line = patch.next_line();
 			if (line.get_first()=='+') {
 				++line;
-				int num_lines = line.atoi();
+				int64_t num_lines = line.atoi();
 				for (int l = 0; l<num_lines; l++) {
 					out.append(patch.next_line());
 					out.append('\n');
@@ -362,7 +362,7 @@ strovl PatchFile(strref orig, strref patch)
 				++line;
 				int first = line.atoi_skip();
 				++line;
-				int num_lines = line.atoi();
+				int64_t num_lines = line.atoi();
 				for (int l = 0; l<num_lines; l++) {
 					out.append(aLines[l+first]);
 					out.append('\n');
