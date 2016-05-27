@@ -90,7 +90,7 @@ bool ParseJSON(strref json, JSONDataCB callback, void *user_data)
 						type = JSON_CB_INT;
 					else if (!quoted && tag.is_float_number())
 						type = JSON_CB_FLOAT;
-					int skip = tag.get_len() + (quoted ? 2 : 0);
+					int skip = (int)(tag.get_len() + (quoted ? 2 : 0));
 					if (!skip)
 						return false;
 					if (type==JSON_CB_NULL || type==JSON_CB_TRUE || type==JSON_CB_FALSE)

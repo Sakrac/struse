@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2013
-VisualStudioVersion = 12.0.40629.0
+# Visual Studio 14
+VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "prehash", "prehash.vcxproj", "{CFD264C4-6B4E-4267-B4EA-56C4C6340919}"
 EndProject
@@ -11,6 +11,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{FEDFB42F-3538-4DC6-9627-5CB3CFAC22C9}"
 	ProjectSection(SolutionItems) = preProject
 		..\README.md = ..\README.md
+		..\..\struse.natvis = ..\..\struse.natvis
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "json_strref", "json_strref.vcxproj", "{E8158D5B-4ED0-4B09-9343-5035BF830AC3}"
