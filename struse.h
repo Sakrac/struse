@@ -589,7 +589,7 @@ public:
 	strref get_snippet( strl_t pos );
 
 	// grab a block of text starting with (, [ or { and end with the corresponding number of ), ] or }
-	strref scoped_block_skip();
+	strref scoped_block_skip( bool quotes = false );
 
 	// scoped_block_skip with C style comments
 	strl_t scoped_block_comment_len();
@@ -4196,18 +4196,22 @@ strref strref::get_snippet( strl_t pos )
 }
 
 // grab a block of text starting with (, [ or { and end with the corresponding number of ), ] or }
-strref strref::scoped_block_skip()
+strref strref::scoped_block_skip(bool quotes)
 {
 	char scope = get_first();
 	if (length && (scope == '(' || scope == '[' || scope == '{')) {
 		char close = scope=='(' ? ')' : (scope=='[' ? ']' : '}');
 		const char *scan = string;
+		bool inQuote = false;
 		strl_t depth = 0;
 		strl_t left = length;
 		do {
 			char c = *scan++;
 			left--;
-			if (c==scope)
+			if( inQuote ) {
+				if( c == '"' ) { inQuote = false;  }
+			} else if( quotes && c=='"' ) { inQuote = true; }
+			else  if( c == scope )
 				depth++;
 			else if (c==close)
 				depth--;
