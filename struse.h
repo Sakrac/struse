@@ -1585,7 +1585,7 @@ size_t strref::ahextoui() const
 {
 	const char *scan = string;
 	strl_t left = length;
-	while (*scan<=0x20 && left) {
+	while (left && *scan<=0x20) {
 		scan++;
 		left--;
 	}
