@@ -615,6 +615,7 @@ public:
 		int l = strref(string+f, length-f).find(b); if (l<0) l = 0; return strref(string+f, l); }
 
 	strref get_quote_xml() const;
+	strref skip_quote_xml();
 	int find_quoted_xml(char d) const; // returns length up to the delimiter d with xml quotation rules, or -1 if delimiter not found
 	int find_quoted(char d) const; // returns length up to the delimiter d with c/c++ quotation rules, or -1 if delimiter not found
 
@@ -4042,6 +4043,28 @@ strref strref::get_quote_xml() const
 		char c = *scan++;
 		if (c==quote_char)
 			return strref(string+1, length-left-1);
+		--left;
+	}
+	return strref();
+}
+
+// if this string begins as an xml quote return that.
+strref strref::skip_quote_xml()
+{
+	char quote_char = get_first();
+	if( quote_char != '"' && quote_char != '\'' )
+		return strref();
+
+	const char *scan = string + 1;
+	strl_t left = length - 1;
+	while( left ) {
+		char c = *scan++;
+		if( c == quote_char ) {
+			strref ret( string + 1, length - left - 1 );
+			string = scan+1;
+			length = left-1;
+			return ret;
+		}
 		--left;
 	}
 	return strref();
