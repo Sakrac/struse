@@ -4062,7 +4062,7 @@ strref strref::skip_quote_xml()
 		if( c == quote_char ) {
 			strref ret( string + 1, length - left - 1 );
 			string = scan+1;
-			length = left-1;
+			length = left-2;
 			return ret;
 		}
 		--left;
