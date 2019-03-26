@@ -593,7 +593,13 @@ public:
 
 	// scoped_block_skip with C style comments
 	strl_t scoped_block_comment_len();
+	strl_t scoped_block_utf8_comment_len();
 	strref scoped_block_comment_skip(bool include = false) { strref ret = split(scoped_block_comment_len()); if (!include) { ++ret; ret.clip(1); } return ret; }
+	strref scoped_block_utf8_comment_skip( bool include = false ) {
+		strref ret = split( scoped_block_utf8_comment_len() );
+		if( !include ) { ++ret; ret.clip( 1 ); }
+		return ret;
+	}
 
 	// check matching characters that are terminated by any character in term or ends
 	strl_t match_chars_str(const strref match, const strref term = strref());
@@ -4277,6 +4283,31 @@ strl_t strref::scoped_block_comment_len()
 	return 0;
 }
 
+strl_t strref::scoped_block_utf8_comment_len()
+{
+	strref str = *this;
+	size_t scope = str.pop_utf8();
+	if( length && ( scope == '(' || scope == '[' || scope == '{' || scope == '<' ) )
+	{
+		char close = scope == '<' ? '>' : ( scope == '(' ? ')' : ( scope == '[' ? ']' : '}' ) );
+		strl_t depth = 1;
+		do {
+			size_t c = str.pop_utf8();
+			if( c == '/' && str.get_len() && ( str[0] == '/' || str[1] == '*' ) ) {
+				c = str.pop_utf8();
+				strl_t skip = c == '/' ? str.len_next_line() : str.find_or_full( "*/" );
+				str += skip;
+			}
+			else if( c == scope )
+				depth++;
+			else if( c == close )
+				depth--;
+		} while( depth && str.valid() );
+		if( !depth )
+			return strl_t( str.string - string );
+	}
+	return 0;
+}
 
 
 // return the current line of text and move this string ahead to the next.
