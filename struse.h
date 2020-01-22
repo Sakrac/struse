@@ -371,6 +371,9 @@ public:
 	// find any char from str or char range or char - with backslash prefix
 	int find_range_char_within_range(const strref range_find, const strref range_within, strl_t pos = 0) const;
 
+	// find but not within parenthesis
+	int find_skip_parens(char token) const;
+
 	// counts
 	int substr_count(const strref str) const; // count the occurrences of the argument in this string
 	int substr_count_bookend(const strref str, const strref bookend) const;
@@ -525,6 +528,10 @@ public:
 	strref before_or_full(char c) const {
 		int o = find(c); if (o>=0) return strref(string, o); return *this; }
 
+	strref before_or_full_track_parens(char c) const {
+		int o = find_skip_parens(c); if (o >= 0) return strref(string, o); return *this;
+	}
+
 	strref before_last(char c) const {
 		int o = find_last(c); if (o>=0) return strref(string, o); return strref(); }
 
@@ -579,6 +586,8 @@ public:
 	strref split_token_any(const strref chars);
 	strref split_token_trim(char c);
 	strref split_token_any_trim(const strref chars);
+	strref split_token_track_parens(char c);
+	strref split_token_trim_track_parens(char c);
 	strref split_range(const strref range, strl_t pos=0);
 	strref split_range_trim(const strref range, strl_t pos=0);
 	strref split_label();
@@ -1868,6 +1877,20 @@ int strref::find_last(char c, char d) const
 			left--;
 		}
 	}
+	return -1;
+}
+
+int strref::find_skip_parens(char token) const
+{
+	int parens = 0;
+	const char* scan = string;
+	strl_t left = length;
+	while (left && (parens || *scan != token)) {
+		if (*scan == '(') { ++parens; } else if (*scan == ')' && parens) { --parens; }
+		--left;
+		++scan;
+	}
+	if (left) { return length - left; }
 	return -1;
 }
 
@@ -4116,6 +4139,15 @@ strref strref::split_token( char c ) {
 	return r;
 }
 
+strref strref::split_token_track_parens(char c)
+{
+	int t = find_skip_parens(c);
+	if (t < 0) t = (int)length;
+	strref r = strref(string, strl_t(t));
+	*this += t + 1;
+	return r;
+}
+
 strref strref::split_token_any( const strref chars )
 {
 	strref r; int t = find_any_char_of( chars );
@@ -4126,6 +4158,13 @@ strref strref::split_token_any( const strref chars )
 	return r;
 }
 
+strref strref::split_token_trim_track_parens(char c)
+{
+	strref r = split_token_track_parens(c);
+	skip_whitespace();
+	r.trim_whitespace();
+	return r;
+}
 strref strref::split_token_trim( char c ) {
 	strref r = split_token( c );
 	skip_whitespace();
