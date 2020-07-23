@@ -629,6 +629,8 @@ public:
 	strref within_last(char a1, char a2, char b) const { int f = find_last(a1, a2)+1;
 		int l = strref(string+f, length-f).find(b); if (l<0) l = 0; return strref(string+f, l); }
 
+	strref get_csv_cell();
+
 	strref get_quote_xml() const;
 	strref skip_quote_xml();
 	int find_quoted_xml(char d) const; // returns length up to the delimiter d with xml quotation rules, or -1 if delimiter not found
@@ -4057,6 +4059,53 @@ int strref::find_quoted_xml(char d) const
 		--left;
 	}
 	return -1;
+}
+
+inline strref strref::get_csv_cell()
+{
+	const char* scan = string;
+	strl_t left = length;
+	if (!left) { return strref(); }
+	if (scan[0] == '"') {
+		++scan; --left;
+		while (left) {
+			if (*scan == '"' && length > 1 && scan[1] == '"') {
+				scan += 2;
+				left -= 2;
+			} else if (*scan == '"') {
+				strref ret(string + 1, (length - left - 1));
+				string = scan + 1;
+				length = left - 1;
+				return ret;
+			} else {
+				++scan;
+				--left;
+			}
+		}
+		strref ret(string + 1, length - 1);
+		length = 0;
+		string = nullptr;
+		return ret;
+	}
+
+	while (left && *scan != ',') {
+		if ((uint8_t)*scan < ' ') {	// skip control codes
+			strref ret(string, length - left);
+			++scan; --left;
+			while (left && *scan < ' ') {
+				++scan; --left;
+			}
+			string = scan; length = left;
+			return ret;
+		}
+		++scan; --left;
+	}
+	strref ret(string, length - left);
+	if (length && *scan == ',') {
+		++scan; --left;
+	}
+	string = scan; length = left;
+	return ret;
 }
 
 // if this string begins as an xml quote return that.
