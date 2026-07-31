@@ -445,6 +445,9 @@ public:
 	// move string forward to the first whitespace character
 	void skip_to_whitespace() { skip(len_grayspace()); }
 
+	// if bom detected skip it
+	strref skip_bom();
+
 	// cut white space characters at end of string
 	void clip_trailing_whitespace() { if (valid()) {
 		const char *e = string+length; while (*--e<=0x20 && length) { length--; } } }
@@ -587,6 +590,7 @@ public:
 	strref split_token_trim(char c);
 	strref split_token_any_trim(const strref chars);
 	strref split_token_track_parens(char c);
+	strref split_token_track_parens_quote(char c);
 	strref split_token_trim_track_parens(char c);
 	strref split_range(const strref range, strl_t pos=0);
 	strref split_range_trim(const strref range, strl_t pos=0);
@@ -1757,6 +1761,16 @@ int strref::count_char(char c) const
 		left--;
 	}
 	return count;
+}
+
+// skip bom header of a utf-8 file if detected
+strref strref::skip_bom()
+{
+	const uint8_t* buf = get_u();
+	if (length >= 3 && buf && buf[0] == 0xef && buf[1] == 0xbb && buf[2] == 0xbf) {
+		return strref(string + 3, length - 3);
+	}
+	return *this;
 }
 
 // find a character in a string
@@ -3991,16 +4005,23 @@ size_t strref::get_utf8() const
 	if (!valid())
 		return 0;
 	const uint8_t *scan = get_u();
-	strl_t left = length-1;
-	if (left>5)
-		left = 5;
-	uint8_t f = *scan++;
-	size_t c = f, mask = 0x80;
-	while ((mask&c) && left) {
+	if (!scan)
+		return 0;
+	size_t c = *scan++;
+	if (c < 0x80)
+		return c;
+	if ((c & 0xE0) == 0xC0) {
 		uint8_t n = *scan++;
-		c = (c<<6)|(n&0x3f);
-		mask <<= 5;
-		left--;
+		c = ((c & 0x1f) << 6) | (n & 0x3f);
+	} else if ((c & 0xF0) == 0xE0) {
+		uint8_t n1 = *scan++;
+		uint8_t n2 = *scan++;
+		c = ((c & 0x0f) << 12) | ((n1 & 0x3f) << 6) | (n2 & 0x3f);
+	} else if ((c & 0xF8) == 0xF0) {
+		uint8_t n1 = *scan++;
+		uint8_t n2 = *scan++;
+		uint8_t n3 = *scan++;
+		c = ((c & 0x07) << 18) | ((n1 & 0x3f) << 12) | ((n2 & 0x3f) << 6) | (n3 & 0x3f);
 	}
 	return c;
 }
@@ -4012,16 +4033,26 @@ size_t strref::pop_utf8()
 	if (!valid())
 		return 0;
 	const uint8_t *scan = get_u();
-	strl_t left = length-1;
-	if (left>5)
-		left = 5;
-	uint8_t f = *scan++;
-	size_t c = f, m = 0x80;
-	while ((m&c) && left) {
+	if (!scan)
+		return 0;
+	size_t c = *scan++;
+	if (c < 0x80) {
+		length -= 1;
+		string = (const char*)scan;
+		return c;
+	}
+	if ((c & 0xE0) == 0xC0) {
 		uint8_t n = *scan++;
-		c = (c<<6)|(n&0x3f);
-		m <<= 5;
-		left--;
+		c = ((c & 0x1f) << 6) | (n & 0x3f);
+	} else if ((c & 0xF0) == 0xE0) {
+		uint8_t n1 = *scan++;
+		uint8_t n2 = *scan++;
+		c = ((c & 0x0f) << 12) | ((n1 & 0x3f) << 6) | (n2 & 0x3f);
+	} else if ((c & 0xF8) == 0xF0) {
+		uint8_t n1 = *scan++;
+		uint8_t n2 = *scan++;
+		uint8_t n3 = *scan++;
+		c = ((c & 0x07) << 18) | ((n1 & 0x3f) << 12) | ((n2 & 0x3f) << 6) | (n3 & 0x3f);
 	}
 	length -= strl_t((const char*)scan - string);
 	string = (const char*)scan;
@@ -4190,6 +4221,24 @@ strref strref::split_token( char c ) {
 
 strref strref::split_token_track_parens(char c)
 {
+	int t = find_skip_parens(c);
+	if (t < 0) t = (int)length;
+	strref r = strref(string, strl_t(t));
+	*this += t + 1;
+	return r;
+}
+
+strref strref::split_token_track_parens_quote(char c)
+{
+	if (length>=2 && string[0] == '"') {
+		strl_t o = 1;
+		while (o < length && string[o] != '"') { ++o; }
+		if (o < length) {
+			strref r = strref(string, o + 1);
+			*this += o + 1;
+			return r;
+		}
+	}
 	int t = find_skip_parens(c);
 	if (t < 0) t = (int)length;
 	strref r = strref(string, strl_t(t));
