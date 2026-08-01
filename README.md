@@ -155,7 +155,7 @@ Wildcard control characters:
 * **[-]**: any single in the range from character before - to character after
 * **[!]**: any single not between the brackets
 * **&lt;**: start of word
-* **&gt**: end of word
+* **&gt;**: end of word
 * **@**: start of line
 * **^**: end of line
 * **\***: any substring
