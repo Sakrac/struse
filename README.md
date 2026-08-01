@@ -61,17 +61,6 @@ An effort has been made to check that all write operations fit within given spac
 
 If anything is unclear I strongly suggest looking at the header file or the code. As far as reasonable the code is written to be easy to read.
 
-### Next steps
-
-* Clean up test code and add to the depot
-* Clean up project files and include in the depot
-* Clean up sample code (xml, json, cfg, csv, etc. parsing) and include
-* More documentation
-
-### Future considerations
-
-* wchar_t support
-
 ---
 
 ## strref overview
