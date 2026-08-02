@@ -2637,6 +2637,7 @@ int strref::find_esc(const strref str, strl_t pos) const
 			const uint8_t *chk_scan = scan;
 			const uint8_t *chk_compare = compare;
 			strl_t chk_scan_left = scan_left;
+			
 			strl_t chk_compare_left = compare_left;
 			while (chk_compare_left) {
 				uint8_t d = *chk_compare++;
@@ -2753,6 +2754,7 @@ int strref::find_case_esc(const strref str, strl_t pos) const
 			const uint8_t *chk_scan = scan;
 			const uint8_t *chk_compare = compare;
 			strl_t chk_scan_left = scan_left;
+			
 			strl_t chk_compare_left = compare_left;
 			while (chk_compare_left) {
 				uint8_t d = *chk_compare++;
@@ -2902,8 +2904,9 @@ int strref::find_case_esc_range(const strref str, const strref range, strl_t pos
 			const uint8_t *chk_scan = scan;
 			const uint8_t *chk_compare = compare;
 			strl_t chk_scan_left = scan_left;
+			
 			strl_t chk_compare_left = compare_left;
-			while (chk_compare_left) {
+			while (chk_compare_left && chk_scan_left) {
 				uint8_t d = *chk_compare++;
 				chk_compare_left--;
 				uint8_t e = *chk_scan++;
@@ -2968,8 +2971,9 @@ int strref::find_esc_range(const strref str, const strref range, strl_t pos) con
 			const uint8_t *chk_scan = scan;
 			const uint8_t *chk_compare = compare;
 			strl_t chk_scan_left = scan_left;
+			
 			strl_t chk_compare_left = compare_left;
-			while (chk_compare_left) {
+			while (chk_compare_left && chk_scan_left) {
 				uint8_t d = int_tolower_ascii7(*chk_compare++);
 				chk_compare_left--;
 				uint8_t e = int_tolower_ascii7(*chk_scan++);
@@ -4521,7 +4525,7 @@ strl_t strref::scoped_block_utf8_comment_len()
 {
 	strref str = *this;
 	size_t scope = str.pop_utf8();
-	if( length && ( scope == '(' || scope == '[' || scope == '{' || scope == '<' ) )
+	if (length && (scope == '(' || scope == '[' || scope == '{' || scope == '<'))
 	{
 		char close = scope == '<' ? '>' : ( scope == '(' ? ')' : ( scope == '[' ? ']' : '}' ) );
 		strl_t depth = 1;
@@ -4534,10 +4538,10 @@ strl_t strref::scoped_block_utf8_comment_len()
 			}
 			else if( c == scope )
 				depth++;
-			else if( c == close )
+			else if (c == static_cast<size_t>(close))
 				depth--;
 		} while( depth && str.valid() );
-		if( !depth )
+		if (!depth)
 			return strl_t( str.string - string );
 	}
 	return 0;
