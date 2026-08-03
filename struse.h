@@ -475,6 +475,13 @@ public:
 	// length of word consisting of alphanumeric characters
 	strl_t len_word() const { return len_alphanumeric(0); }
 
+	// length of a file path consisting of alphanumeric characters, underscores, hyphens and periods
+	strl_t len_path() const { if (valid()) {
+		const char *s = string; strl_t r = length;
+		while ((is_alphanumeric((uint8_t)*s) || *s=='/' || *s=='\\' || *s=='_' || *s=='-' || *s=='.') && r) { s++; r--; }
+		return length-r; } return 0; 
+	}
+
 	// length of string with escape characters
 	strl_t len_esc() const;
 
@@ -514,6 +521,8 @@ public:
 
 	strref get_word() const { return get_clipped(len_word()); }
 
+	strref get_path() const { return get_clipped(len_path()); }
+
 	// get a range of characters matching the range
 	strref get_range_word(const strref range, strl_t pos = 0) const;
 	
@@ -552,6 +561,9 @@ public:
 
 	strref before_last(char c, char d) const {
 		int o = find_last(c, d); if (o>=0) return strref(string, o); return strref(); }
+
+	strref before_last_or_full(char c, char d) const {
+		int o = find_last(c, d); if (o>=0) return strref(string, o); return *this; }
 
 	strref before_or_full(const strref str) const {
 		int o = find(str); if (o<0) return *this; return strref(string, o); }
@@ -770,7 +782,7 @@ public:
 	const char* get() const { return charstr(); }
 	char get_first() const { return (charstr() && len()) ? *charstr() : 0; }
 	char get_last() const { return (charstr() && len()) ? charstr()[len()-1] : 0; }
-	void copy(strref o) { set_len_int(_strmod_copy(charstr(), cap(), o)); }
+	void copy(const strref o) { set_len_int(_strmod_copy(charstr(), cap(), o)); }
     bool is_substr(const char *sub) const { return sub>=charstr() && sub<=(charstr()+len()); }
 
 	// public size operators (checks for capacity)
@@ -852,7 +864,7 @@ public:
 	int find_after_last(char a, char b) const { return get_strref().find_after_last(a, b); }
 	int find_after_last(char a1, char a2, char b) const { return get_strref().find_after_last(a1, a2, b); }
 	int find(const strref str) const { return get_strref().find(str); }
-	int find(const strref str, strl_t pos) const { get_strref().find(str, pos); }
+	int find(const strref str, strl_t pos) const { return get_strref().find(str, pos); }
 	int find(const char *str, strl_t pos = 0) const { return get_strref().find(str, pos); }
 	int find_case(const strref str) const { return get_strref().find_case(str); }
 	int find_case(const char *str) const { return get_strref().find_case(str); }
@@ -1095,8 +1107,10 @@ public:
 				length = len()-pos;
 			}
 			if (length) {
-				for (strl_t i = 0; i<length; i++) {
-					charstr()[pos+i] = charstr()[pos+i+length];
+				char* s = charstr()+pos;
+				strl_t l = len() - pos - length;
+				for (strl_t i = 0; i<l; i++) {
+					s[i] = s[i+length];
 				}
 			}
 			sub_len_int(length);
@@ -1156,7 +1170,7 @@ public:
 template <strl_t S> class strown : public strmod<strown_base<S> > {
 public:
 	strown(const char *s) { strmod<strown_base<S> >::copy(s); }
-	explicit strown(strref s) { strmod<strown_base<S> >::copy(s); }
+	explicit strown(const strref s) { strmod<strown_base<S> >::copy(s); }
 	strown() {}
 };
 
@@ -1168,6 +1182,36 @@ public:
     strovl(char *ptr, strl_t space, strl_t length) { set_overlay(ptr, space); string_length = length; }
 };
 
+class strshr_base {
+protected:
+	char *string_ptr;
+	strl_t string_length;
+	strl_t string_space;
+	void add_len_int(strl_t l) { string_length += l; } // unsafe add len (size already checked)
+	void sub_len_int(strl_t l) { string_length -= l; } // unsafe sub len (size already checked)
+	void set_len_int(strl_t l) { string_length = l; }
+	void dec_len_int() { string_length--; }
+	void inc_len_int() { string_length++; }
+public:
+	strl_t cap() const { return string_space; }
+	strl_t len() const { return string_length; }
+	char *charstr() { return string_ptr; }
+	const char* charstr() const { return string_ptr; }
+	void invalidate() { string_ptr = nullptr; string_space = 0; }
+	void set_overlay(char *ptr, strl_t space) { string_ptr = ptr; string_space = space; }
+	void set_overlay(char *ptr, strl_t space, strl_t len) {
+		string_ptr = ptr; string_space = space; string_length = len; }
+};
+
+// overlay string class, instance with 'strshr name(char *, size)'
+class strshr : public strmod<strshr_base> {
+public:
+	strshr() { invalidate(); string_length = 0; }
+	strshr(char *ptr, strl_t space) { set_overlay(ptr, space); string_length = 0; }
+	strshr(char *ptr, strl_t space, strl_t length) { set_overlay(ptr, space); string_length = length; }
+	template <int L>
+	strshr(strown<L>& orig) { string_ptr = orig.charstr(); string_length = orig.get_len(); string_space = L; }
+};
 
 // helper for relative strings. purpose is for string collections that may need to grow
 // by allocating a new buffer and copying. requires calling get(base strref) tp use string.

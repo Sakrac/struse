@@ -9,4 +9,7 @@
   <Type Name="strovl">
     <DisplayString>{string_ptr,[string_length]s}</DisplayString>
   </Type>
+	<Type Name="strshr">
+		<DisplayString>{string_ptr,[string_length]s}</DisplayString>
+	</Type>
 </AutoVisualizer>
