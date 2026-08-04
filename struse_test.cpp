@@ -146,6 +146,52 @@ bool test_mutation_and_formatting() {
     return ok;
 }
 
+bool test_mutation_regressions() {
+    bool ok = true;
+
+    strown<64> builder("abcdef");
+    builder.erase(2, 2);
+    ok &= check(builder.same_str("abef"), "erase() should remove a middle range and keep the rest intact");
+
+    builder.erase(2, 10);
+    ok &= check(builder.same_str("ab"), "erase() should clamp removals to the available tail");
+
+    strown<64> empty;
+    empty.erase(0, 1);
+    ok &= check(empty.empty(), "erase() should leave an empty buffer unchanged when removing from the start");
+
+    return ok;
+}
+
+bool test_strmod_builder_helpers() {
+    bool ok = true;
+
+    strown<64> builder("abc");
+    ok &= check(builder.insert(strref("X"), 1), "insert() should return true when the insertion fits");
+    ok &= check(builder.same_str("aXbc"), "insert() should insert content at the requested offset");
+
+    builder.pad_to('.', 6);
+    ok &= check(builder.same_str("aXbc.."), "pad_to() should fill the remaining range with the requested character");
+
+    builder.prepend("Z");
+    ok &= check(builder.same_str("ZaXbc.."), "prepend() should insert content at the start");
+
+    strref args[] = { strref("box"), strref("42") };
+    strown<64> fmt;
+    fmt.format("Hello {0} {1}", args);
+    ok &= check(fmt.same_str("Hello box 42"), "format() should replace numbered placeholders in a fresh buffer");
+
+    strown<64> num;
+    num.append_num(42, 2, 10);
+    ok &= check(num.same_str("42"), "append_num() should append a decimal number with the requested width");
+
+    strown<64> hex_num;
+    hex_num.append_num(255, 2, 16);
+    ok &= check(hex_num.same_str("ff"), "append_num() should format numbers in other radices");
+
+    return ok;
+}
+
 bool test_path_and_format_helpers() {
     bool ok = true;
 
@@ -368,6 +414,8 @@ int main() {
     ok &= test_wildcards();
     ok &= test_whitespace_and_lines();
     ok &= test_mutation_and_formatting();
+    ok &= test_mutation_regressions();
+    ok &= test_strmod_builder_helpers();
     ok &= test_path_and_format_helpers();
     ok &= test_collections_and_numbers();
     ok &= test_delimiter_and_bookend_helpers();
