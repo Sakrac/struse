@@ -475,12 +475,8 @@ public:
 	// length of word consisting of alphanumeric characters
 	strl_t len_word() const { return len_alphanumeric(0); }
 
-	// length of a file path consisting of alphanumeric characters, underscores, hyphens and periods
-	strl_t len_path() const { if (valid()) {
-		const char *s = string; strl_t r = length;
-		while ((is_alphanumeric((uint8_t)*s) || *s=='/' || *s=='\\' || *s=='_' || *s=='-' || *s=='.') && r) { s++; r--; }
-		return length-r; } return 0; 
-	}
+	// length of a file path consisting of alphanumeric characters, underscores, hyphens and periods, can be quoted
+	strl_t len_path() const;
 
 	// length of string with escape characters
 	strl_t len_esc() const;
@@ -4465,19 +4461,15 @@ strref strref::split_num() {
 	return r;
 }
 
-strref strref::split_path() {
-	trim_whitespace();
+strl_t strref::len_path() const {
 	if(!valid()) { return strref(); }
 
 	if(string[0]=='"') {
 		int f = find_after('"', 1);
 		if(f>=0) {
-			strref r(string, strl_t(f+1));
-			string += f+1;
-			length -= strl_t(f+1);
-			return r;
+			return f+1;
 		}
-		return strref();	// invalid quoted path
+		return 0;
 	}
 
 	strl_t left = length;
@@ -4487,13 +4479,17 @@ strref strref::split_path() {
 		if (c<=' ' || c=='#' || c=='&' || c=='{' || c=='}' || c=='<' || c=='>' || c=='?') {
 			break;
 		}
-
 		scan++;
 		left--;
 	}
-	strref r(string, strl_t(scan - string));
-	string += strl_t(scan - string);
-	length = left;
+	return length - left;
+}
+
+strref strref::split_path() {
+	trim_whitespace();
+	strl_t split = len_path();
+	strref r(string, split);
+	skip(split);
 	return r;
 }
 
