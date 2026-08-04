@@ -138,6 +138,7 @@ out.format_append("{0} {1}", args);
 - `tolower()`, `toupper()`, and the platform-specific variants — mutate the buffer’s case.
 - `tolower_utf8()`, `toupper_utf8()` — apply UTF-8-aware case transforms.
 - `write_utf8()`, `push_utf8()`, `get_utf8()` — read and write single UTF-8 code points.
+  These helpers are limited conversion utilities; struse does not provide general-purpose Unicode text handling.
 
 Example:
 
