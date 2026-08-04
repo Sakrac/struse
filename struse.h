@@ -756,6 +756,7 @@ strl_t _strmod_append(char *string, strl_t length, strl_t cap, strref str);
 strl_t _strmod_insert(char *string, strl_t length, strl_t cap, const strref sub, strl_t pos);
 strl_t _strmod_utf8_tolower(char *string, strl_t length, strl_t cap);
 strl_t _strmod_write_utf8( char *string, strl_t cap, size_t code, strl_t pos );
+size_t _strmod_read_utf8(char *string, strl_t length, strl_t pos, strl_t &skip);
 void _strmod_substrcopy(char *string, strl_t length, strl_t cap, strl_t src, strl_t dst, strl_t chars);
 void _strmod_tolower(char *string, strl_t length);
 void _strmod_toupper(char *string, strl_t length);
@@ -963,6 +964,7 @@ public:
 	strl_t write_utf8(int code, strl_t pos) { return _strmod_write_utf8(charstr(), cap(), code, pos); }
 
 	// push a single utf-8 character to the end of this string
+	// note: utf-8 is not directly supported; these helpers only convert to/from code points as byte-oriented utilities
 	void push_utf8(int code) { add_len_int(write_utf8(code, len())); }
 
 	// get a single utf-8 character
