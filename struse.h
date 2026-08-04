@@ -680,6 +680,23 @@ public:
 	strref split_label();
 	strref split_lang();
 	strref split_num();
+	strref split_path();
+
+	strref trim_surrounding_quotes() {
+		if (get_len() >= 2 && get_first() == '"' && get_last() == '"') {
+			string++;
+			length -= 2;
+		}
+		return *this;
+	}
+
+	strref trim_surrounding_parens() {
+		if (get_first() == '(' && get_last() == ')') {
+			string++;
+			length -= 2;
+		}
+		return *this;
+	}
 
 	// get a snippet, previous and full current line around a position
 	strref get_snippet( strl_t pos );
@@ -1180,37 +1197,8 @@ public:
 	strovl() { invalidate(); string_length = 0; }
 	strovl(char *ptr, strl_t space) { set_overlay(ptr, space); string_length = 0; }
     strovl(char *ptr, strl_t space, strl_t length) { set_overlay(ptr, space); string_length = length; }
-};
-
-class strshr_base {
-protected:
-	char *string_ptr;
-	strl_t string_length;
-	strl_t string_space;
-	void add_len_int(strl_t l) { string_length += l; } // unsafe add len (size already checked)
-	void sub_len_int(strl_t l) { string_length -= l; } // unsafe sub len (size already checked)
-	void set_len_int(strl_t l) { string_length = l; }
-	void dec_len_int() { string_length--; }
-	void inc_len_int() { string_length++; }
-public:
-	strl_t cap() const { return string_space; }
-	strl_t len() const { return string_length; }
-	char *charstr() { return string_ptr; }
-	const char* charstr() const { return string_ptr; }
-	void invalidate() { string_ptr = nullptr; string_space = 0; }
-	void set_overlay(char *ptr, strl_t space) { string_ptr = ptr; string_space = space; }
-	void set_overlay(char *ptr, strl_t space, strl_t len) {
-		string_ptr = ptr; string_space = space; string_length = len; }
-};
-
-// overlay string class, instance with 'strshr name(char *, size)'
-class strshr : public strmod<strshr_base> {
-public:
-	strshr() { invalidate(); string_length = 0; }
-	strshr(char *ptr, strl_t space) { set_overlay(ptr, space); string_length = 0; }
-	strshr(char *ptr, strl_t space, strl_t length) { set_overlay(ptr, space); string_length = length; }
-	template <int L>
-	strshr(strown<L>& orig) { string_ptr = orig.charstr(); string_length = orig.get_len(); string_space = L; }
+	template <strl_t L>
+	strovl(strown<L>& orig) { string_ptr = orig.charstr(); string_length = orig.get_len(); string_space = L; }
 };
 
 // helper for relative strings. purpose is for string collections that may need to grow
@@ -4475,6 +4463,37 @@ strref strref::split_num() {
 	return r;
 }
 
+strref strref::split_path() {
+	trim_whitespace();
+	if(!valid()) { return strref(); }
+
+	if(string[0]=='"') {
+		int f = find_after('"', 1);
+		if(f>=0) {
+			strref r(string, strl_t(f+1));
+			string += f+1;
+			length -= strl_t(f+1);
+			return r;
+		}
+		return strref();	// invalid quoted path
+	}
+
+	strl_t left = length;
+	const char* scan = string;
+	while(left) {
+		char c = *scan;
+		if (c<=' ' || c=='#' || c=='&' || c=='{' || c=='}' || c=='<' || c=='>' || c=='?') {
+			break;
+		}
+
+		scan++;
+		left--;
+	}
+	strref r(string, strl_t(scan - string));
+	string += strl_t(scan - string);
+	length = left;
+	return r;
+}
 
 // split string based on common programming tokens (words, quotes, scopes, numbers)
 strref strref::split_lang()
